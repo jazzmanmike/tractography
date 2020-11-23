@@ -1,29 +1,75 @@
-#!/bin/sh
+#!/bin/bash
+set -e
 
-#  deparcellator.sh
-#  
-#
-#  Created by Michael Hart on 19/10/2020.
-#  
+#define
 
-echo "Creating seed and target regions"
+codedir=${HOME}/code
+basedir="$(pwd -P)"
 
-mkdir -p ${path_project}/diffusion/parcellation/${parcellation}/seeds/
-i=1
+usage()
+{
+cat<<EOF
+usage: $0 options
 
-while [ ${i} -le  $numParcels ]
+=============================================================================================
+
+deparcellator.sh
+
+Splits up a numbered volume (e.g. parcellation template) into its constituents & makes a .txt list
+
+Example:
+
+deparcellator.sh parcellation.nii.gz
+
+***Entirely based on code from Dr Rafael Romero-Garcia ('El Cunado'), University of Cambridge - Muchas Gracias Cunado!***
+
+
+Created by Michael Hart, University of British Columbia, October 2020
+
+=============================================================================================
+
+EOF
+exit 1
+}
+
+volume=$1
+outname=`basename ${volume} .nii.gz`
+mkdir -p ${basedir}/${outname}_seeds
+outdir=${basedir}/${outname}_seeds
+nParcel=1
+maxParcel=`fslstats $1 -R | awk '{print $2}'`
+numParcels=`printf "%0.0f\n" $maxParcel`
+
+echo "basedir is: ${basedir}"
+echo "number of parcels is: ${numParcels}"
+echo "outdir is: ${outdir}"
+
+if [ $(imtest ${volume}) == 1 ] ;
+then
+    echo "parcellation template is ok: ${volume}"
+else
+    echo "Cannot locate parcellation template ${volume}. Please ensure the ${volume} dataset is in this directory -> exiting now" >&2
+    exit 1
+fi
+
+while [ ${nParcel} -le  ${numParcels} ]
 do
     
     fslmaths \
-    ${path_project}/diffusion/parcellation/${parcellation}_WM_dwiSpace.nii.gz \
-    -thr ${i} \
-    -uthr ${i} \
+    ${volume} \
+    -thr ${nParcel} \
+    -uthr ${nParcel} \
     -bin \
-    ${path_project}/diffusion/parcellation/${parcellation}/seeds/Seg`printf %04d $i`.nii.gz
+    ${outdir}/Seg`printf %04d ${nParcel}`.nii.gz
     
-    echo ${path_project}/diffusion/parcellation/${parcellation}/seeds/Seg`printf %04d $i`.nii.gz \
+    current_parcel=${outdir}/Seg`printf %04d ${nParcel}`.nii.gz
     
-    >> ${path_project}/diffusion/parcellation/${parcellation}/seeds_targets_list.txt
-    
-    i=$((${i}+1))
+    if [ `fslstats ${current_parcel} -R | awk '{print $2}'` == 0 ]; then
+        echo "removing ${current_parcel} as it's empty"
+        rm ${current_parcel}
+    else
+        echo ${outdir}/Seg`printf %04d ${nParcel}`.nii.gz \
+        >> ${outdir}/seeds_targets_list.txt
+    fi
+    nParcel=$((${nParcel}+1))
 done

@@ -1,0 +1,14 @@
+# WM structures file
+#
+# Format:  <name> <# samples per voxel/1000>
+#
+# naming convention must correspond to subfolders of 'protocols'
+#
+
+drt_l 5
+drt_r 5
+nf_l 5
+nf_r 5
+pf_l 5
+pf_r 5
+

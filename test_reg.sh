@@ -1,437 +1,127 @@
-#!/bin/bash
-set -e
+#!/bin/sh
 
-# test_reg.sh
+#  test_reg.sh
+#  
 #
+#  Created by Michael Hart on 12/11/2020.
 #
-# Michael Hart, University of British Columbia, August 2020 (c)
 
-#define
 
-codedir=${HOME}/code
-basedir="$(pwd -P)"
+#Start with FSL
+#Need to define best BET image first: use ants_brain - rename as mprage_brain
 
-#make usage function
+echo "starting test_reg"
+echo $(date)
 
-usage()
-{
-cat<<EOF
-usage: $0 options
+echo "starting diff2str"
 
-=============================================================================================
+#diffusion to structural
+flirt -in nodif_brain.nii.gz -ref bet_check/test_structural.anat/T1_biascorr_brain.nii.gz -omat diffusion.bedpostX/xfms/diff2str.mat -dof 6
 
-test_reg.sh
-
-(c) Michael Hart, University of British Columbia, August 2020
-
-
-***Tester for checking out code***
-
-
-Example:
-
-test_reg.sh --data=DTI.nii.gz --T1=mprage.nii.gz --bvecs=bvecs.txt --bvals=bvals.txt
-
-Options:
-
-Mandatory
---data      diffusion data
---T1        structural (T1) image
---bvecs     bvecs file
---bvals     bvals file
-
-Optional
--p          parallel processing (slurm)
--d          runs topup & eddy (see code for data requirements)
--o          overwrite
--h          show this help
--v          verbose
-
-Pipeline
-1. Baseline quality control
-2. FSL_anat (+/- parallel)
-3. Freesurfer (+/- parallel)
-(de-noising with topup & eddy - optional)
-4. FDT pipeline
-5. BedPostX (+/- parallel)
-6. Registration
-7. XTRACT (including custom tracts)
-8. ProbTrackX (including connectome parcellation & thalamic segmentation)
-
-Version:    1.0
-
-History:    original version
-
-=============================================================================================
-
-EOF
-}
-
-
-###################
-# Standard checks #
-###################
-
-
-#mandatory files
-data=
-T1=
-bvecs=
-bvals=
-
-#initialise options
-
-echo "output is $basedir"
-
-# Call getopt to validate the provided input.
-options=$(getopt -o pdohv --long data:,T1:,bvecs:,bvals: -- "$@")
-
-[ $? -eq 0 ] || {
-    echo "Incorrect options provided -> exiting now" >&2
-    usage
-    exit 1
-}
-
-eval set -- "$options"
-while true; do
-    case "$1" in
-    -p)
-        parallel=1
-        ;;
-    -d)
-        denoise=1
-        ;;
-    -o)
-        overwrite=1
-        ;;
-    -h)
-        usage
-        exit 1
-        ;;
-    -v)
-        shift;
-        verbose=$1
-        ;;
-    --data )
-        shift; # The arg is next in position args
-        data=$1
-        ;;
-    --T1 )
-        shift;
-        T1=$1
-        ;;
-    --bvecs )
-        shift;
-        bvecs=$1
-        ;;
-    --bvals )
-        shift;
-        bvals=$1
-        ;;
-    --)
-        shift
-        break
-        ;;
-    esac
-    shift
-done
-
-
-#set verbose option
-
-if [ "$verbose" == 1 ] ;
-then
-    set -x verbose
-fi
-
-
-echo "Diffusion data is: ${data}"
-echo "Structural data is: ${T1}"
-echo "bvecs are: ${bvecs}"
-echo "bvals are: ${bvals}"
-
-if [ "${parallel}" == 1 ] ;
-then
-    echo "running in parallel with slurm"
-else
-    echo "running sequentially"
-fi
-
-if [ "${denoise}" == 1 ] ;
-then
-    echo "denoising set up: will run topup & eddy"
-else
-    echo "not running topup or eddy"
-fi
-
-if [ "${overwrite}" == 1 ] ;
-then
-    echo "overwrite set on"
-else
-    echo "overwrite is off"
-fi
-
-if [ "${verbose}" == 1 ] ;
-then
-    echo "verbose set on"
-else
-    echo "verbose set off"
-fi
-
-echo "options ok"
-
-
-#check files
-
-echo "Checking mandatory files are ok (data, structural, bvecs, bvals)"
-
-data_test=${basedir}/${data}
-
-if [ $(imtest $data_test) == 1 ] ;
-then
-    echo "diffusion data ok"
-else
-    echo "Cannot locate data file ${data_test}. Please ensure the ${data_test} dataset is in this directory -> exiting now" >&2
-    exit 1
-fi
-
-T1_test=${basedir}/${T1}
-
-if [ $(imtest $T1_test) == 1 ] ;
-then
-    echo "structural data ok"
-else
-    echo "Cannot locate structural file ${T1_test}. Please ensure the ${T1_test} dataset is in this directory -> exiting now" >&2
-    exit 1
-fi
-
-bvecs_test=${basedir}/${bvecs}
-
-if [ -f $bvecs_test ] ;
-then
-  echo "bvecs are ok"
-else
-  echo "Cannot locate bvecs file ${bvecs_test}. Please ensure the ${bvecs_test} dataset is in this directory -> exiting now" >&2
-  exit 1
-fi
-
-bvals_test=${basedir}/${bvals}
-
-if [ -f $bvals_test ] ;
-then
-  echo "bvals are ok"
-else
-  echo "Cannot locate bvals file ${bvals_test}. Please ensure the ${bvals_test} dataset is in this directory -> exiting now" >&2
-  exit 1
-fi
-
-echo "All mandatory files (data, structural, bvecs, bvals) are ok"
-
-#make output directory
-
-if [ ! -d ${basedir}/diffusion ] ;
-then
-    echo "making output directory"
-    mkdir ${basedir}/diffusion
-    mkdir ${basedir}/diffusion/QC
-else
-    echo "output directory already exists"
-    if [ "$overwrite" == 1 ] ;
-    then
-        echo "making new output directory"
-        mkdir -p ${basedir}/diffusion
-        mkdir -p ${basedir}/diffusion/QC
-    else
-        echo "no overwrite permission to make new output directory"
-    exit 1
-    fi
-fi
-
-outdir=${basedir}/diffusion
-
-echo "The output directory is: ${outdir}"
-
-#make temporary directory: work in this
-
-tempdir="$(mktemp -t -d temp.XXXXXXXX)"
-
-cd "${tempdir}"
-
-
-#move & gzip & rename files: use these files & preserve originals
-fslchfiletype NIFTI_GZ ${data_test} ${outdir}/data #make copies of inputs in diffusion folder
-data=${outdir}/data.nii.gz #this is now working data with standard prefix
-
-#same for remaining files
-fslchfiletype NIFTI_GZ ${T1_test} ${outdir}/structural
-structural=${outdir}/structural.nii.gz
-
-cp $bvecs_test ${outdir}
-bvecs=${outdir}/${bvecs}
-cp $bvals_test ${outdir}
-bvals=${outdir}/${bvals}
+echo "starting epi_reg"
 
+#epi_reg
+epi_reg --epi=nodif_brain.nii.gz --t1=bet_check/test_structural.anat/T1_biascorr.nii.gz --t1brain=bet_check/test_structural.anat/T1_biascorr_brain.nii.gz --out=diffusion.bedpostX/xfms/epi2str
 
-#Start logfile: if already exists (and therefore script previously run) stops here
+echo "starting str2diff"
 
-if [ ! -d ${outdir}/van_tractography.txt ] ;
-then
-    echo "making log file"
-    touch van_tractography.txt
-else
-    echo "log file already exists - van_tractography.sh has probably already been run"
-    if [ "$overwrite" == 1 ] ;
-    then
-        touch van_tractography.txt
-    else
-        echo "no overwrite permission"
-    exit 1
-    fi
-fi
-
-log=van_tractography.txt
-echo $(date) >> ${log}
-echo "${0}" >> ${log}
-echo "${@}" >> ${log}
-echo "Starting van_tractography.sh"
-echo "" >> ${log}
-echo "Options are:"
-echo "${options}" >> ${log}
-echo "" >> ${log}
-
-
-##################
-# Main programme #
-##################
-
-
-function testREG() {
-
-
-
-    #################
-
-    #6. Registration
-
-    #################
-
-
-    echo "" >> $log
-    echo $(date) >> $log
-    echo "6. Starting registration" >> $log
-
-    mkdir diffusion.bedpostX
-    mkdir diffusion.bedpostX/xfms
-
-    #brain extract
-    bet ${structural} ${outdir}/mprage_brain #put in outdir so fnirt can find structural in same place
-
-    #diffusion to structural
-    flirt -in nodif_brain -ref ${structural} -omat diffusion.bedpostX/xfms/diff2str.mat -dof 6
-
-    #epi_reg
-    epi_reg --epi=nodif_brain --t1=structural_batch.anat/T1_biascorr.bii.gz --t1brain=/structural_batch.anat/T1_biascorr_brain.nii.gz --out=epi2struct
+#structural to diffusion inverse
+convert_xfm -omat diffusion.bedpostX/xfms/str2diff.mat -inverse diffusion.bedpostX/xfms/diff2str.mat
 
-    #structural to diffusion inverse
-    convert_xfm -omat diffusion.bedpostX/xfms/str2diff.mat -inverse diffusion.bedpostX/xfms/diff2str.mat
-
-    #structural to standard affine
-    flirt -in mprage_brain -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain -omat diffusion.bedpostX/xfms/str2standard.mat -dof 12
-
-    #standard to structural affine inverse
-    convert_xfm -omat vim_dti/diffusion.bedpostX/xfms/standard2str.mat -inverse vim_dti/diffusion.bedpostX/xfms/str2standard.mat
-
-    #diffusion to standard (6 & 12 DOF)
-    convert_xfm -omat vim_dti/diffusion.bedpostX/xfms/diff2standard.mat -concat vim_dti/diffusion.bedpostX/xfms/str2standard.mat vim_dti/diffusion.bedpostX/xfms/diff2str.mat
-
-    #standard to diffusion (12 & 6 DOF)
-    convert_xfm -omat vim_dti/diffusion.bedpostX/xfms/standard2diff.mat -inverse vim_dti/diffusion.bedpostX/xfms/diff2standard.mat
-
-    #structural to standard: non-linear
-    fnirt --in=${structural} --aff=/vim_dti/diffusion.bedpostX/xfms/str2standard.mat --cout=/vim_dti/diffusion.bedpostX/xfms/str2standard_warp --config=T1_2_MNI152_2mm
-
-    #standard to structural: non-linear
-    invwarp -w vim_dti/diffusion.bedpostX/xfms/str2standard_warp -o vim_dti/diffusion.bedpostX/xfms/standard2str_warp -r mprage_brain
-
-    #diffusion to standard: non-linear
-    convertwarp -o vim_dti/diffusion.bedpostX/xfms/diff2standard_warp -r ${FSLDIR}/data/standard/MNI152_T1_2mm -m vim_dti/diffusion.bedpostX/xfms/diff2str.mat -w vim_dti/diffusion.bedpostX/xfms/str2standard_warp
-
-    #standard to diffusion: non-linear
-    convertwarp -o vim_dti/diffusion.bedpostX/xfms/standard2diff_warp -r vim_dti/diffusion.bedpostX/nodif_brain_mask -w vim_dti/diffusion.bedpostX/xfms/standard2str_warp --postmat=/vim_dti/diffusion.bedpostX/xfms/str2diff.mat
-
-
-    echo "" >> $log
-    echo $(date) >> $log
-    echo "Finished with registration" >> $log
-    echo "" >> $log
-
-
-######################################################################
-
-# BedpostX
-
-######################################################################
-
-
-if [ ! -f ${path_project}/diffusion/BEDPOSTX.bedpostX/mean_S0samples.nii.gz ]
-then
-    id_par=0
-    mkdir -p ${path_project}/diffusion/BEDPOSTX.bedpostX/command_files/
-    while read line; do
-        if [ ! -f ${path_project}/diffusion/BEDPOSTX.bedpostX/diff_slices/data_slice_`printf %04d $id_par`/mean_S0samples.nii.gz ]
-        then
-            echo '#!/bin/sh' > ${path_project}/diffusion/BEDPOSTX.bedpostX/command_files/command_`printf %04d $id_par`.sh
-            echo $line >> ${path_project}/diffusion/BEDPOSTX.bedpostX/command_files/command_`printf %04d $id_par`.sh
-                chmod 777 ${path_project}/diffusion/BEDPOSTX.bedpostX/command_files/command_`printf %04d $id_par`.sh
-            if [ "$parallel_procesing" = 0 ]
-            then
-                ${path_project}/diffusion/BEDPOSTX.bedpostX/command_files/command_`printf %04d $id_par`.sh
-            else
-                sleep 2
-                #sbatch --time=02:00:00 ${path_project}/diffusion/BEDPOSTX.bedpostX/command_files/command_`printf %04d $id_par`.sh
-                echo "Step-by-step bedpostx command_files/command_`printf %04d $id_par`.sh"
-                sleep 1
-            fi
-        fi
-        id_par=$(($id_par + 1))
-    done < ${path_project}/diffusion/BEDPOSTX.bedpostX/commands.txt
-
-    bedpostFinished=`(ls ${path_project}/diffusion/BEDPOSTX.bedpostX/diff_slices/data_slice_*/mean_S0samples.nii.gz 2>/dev/null | wc -l)`
-    numLines=`cat ${path_project}/diffusion/BEDPOSTX.bedpostX/commands.txt  | wc -l`
-    if  [ "${bedpostFinished}" = "$numLines" ]
-    then
-        echo "bedpostx_postproc.sh ${path_project}/diffusion/BEDPOSTX"
-        bedpostx_postproc.sh ${path_project}/diffusion/BEDPOSTX
-    fi
-
-    echo "Bedpost jobs submitted to the cluster. Re-run script after they finished to start the tractography"
-    echo "Check number of job finished. Total ($id_par)"
-    echo "ls diffusion/BEDPOSTX.bedpostX/diff_slices/data_slice*/mean_dsamples.nii.gz | wc -l"
-    
-fi
-
-
-######################################################################
-
-# Close up
-
-######################################################################
-
-#call function
-
-testREG
-
-echo "test_reg.sh completed"
-
-#cleanup
-
-cp -fpR . "${outdir}"
-cd ${outdir}
-rm -Rf ${tempdir}
-
-#close up
-
-echo "" >> $log
-echo "all done with test_van.sh" >> ${log}
-echo $(date) >> ${log}
-echo "" >> ${log}
+echo "starting flirt affine"
+
+#structural to standard affine
+flirt -in bet_check/test_structural.anat/T1_biascorr_brain.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain -omat diffusion.bedpostX/xfms/str2standard.mat -dof 12
+
+echo "starting inverse affine"
+
+#standard to structural affine inverse
+convert_xfm -omat diffusion.bedpostX/xfms/standard2str.mat -inverse diffusion.bedpostX/xfms/str2standard.mat
+
+echo "starting diff2standard.mat"
+
+#diffusion to standard (6 & 12 DOF)
+convert_xfm -omat diffusion.bedpostX/xfms/diff2standard.mat -concat diffusion.bedpostX/xfms/str2standard.mat diffusion.bedpostX/xfms/diff2str.mat
+
+echo "starting standard2diff.mat"
+
+#standard to diffusion (12 & 6 DOF)
+convert_xfm -omat diffusion.bedpostX/xfms/standard2diff.mat -inverse diffusion.bedpostX/xfms/diff2standard.mat
+
+echo "starting fnirt"
+
+#structural to standard: non-linear
+fnirt --in=bet_check/test_structural.anat/T1_biascorr.nii.gz --aff=diffusion.bedpostX/xfms/str2standard.mat --cout=diffusion.bedpostX/xfms/str2standard_warp --config=T1_2_MNI152_2mm
+
+echo "starting inv_warp"
+
+#standard to structural: non-linear
+invwarp -w diffusion.bedpostX/xfms/str2standard_warp -o diffusion.bedpostX/xfms/standard2str_warp -r bet_check/test_structural.anat/T1_biascorr_brain.nii.gz
+
+echo "starting diff2standard"
+
+#diffusion to standard: non-linear
+convertwarp -o diffusion.bedpostX/xfms/diff2standard -r ${FSLDIR}/data/standard/MNI152_T1_2mm_brain --premat=diffusion.bedpostX/xfms/diff2str.mat --warp1=diffusion.bedpostX/xfms/str2standard_warp
+
+echo "starting standard2diff"
+
+#standard to diffusion: non-linear
+convertwarp -o diffusion.bedpostX/xfms/standard2diff -r nodif_brain     --warp1=diffusion.bedpostX/xfms/standard2str_warp --postmat=diffusion.bedpostX/xfms/str2diff.mat
+
+#check images
+
+mkdir diffusion.bedpostX/xfms/reg_check
+
+#diffusion to structural
+
+echo "starting diff2str check"
+
+#flirt
+flirt -in nodif_brain.nii.gz -ref bet_check/test_structural.anat/T1_biascorr_brain.nii.gz -init diffusion.bedpostX/xfms/diff2str.mat -out diffusion.bedpostX/xfms/reg_check/diff2str_check.nii.gz
+
+slicer bet_check/test_structural.anat/T1_biascorr_brain.nii.gz diffusion.bedpostX/xfms/reg_check/diff2str_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/diff2str_check.ppm
+
+echo "starting epi_reg check"
+
+#epi_reg
+flirt -in nodif_brain.nii.gz -ref bet_check/test_structural.anat/T1_biascorr_brain.nii.gz -init diffusion.bedpostX/xfms/epi2str.mat -out diffusion.bedpostX/xfms/reg_check/epi2str_check.nii.gz
+
+slicer bet_check/test_structural.anat/T1_biascorr_brain.nii.gz diffusion.bedpostX/xfms/reg_check/epi2str.nii.gz -a diffusion.bedpostX/xfms/reg_check/epi2str_check.ppm
+
+echo "starting str2standard check"
+
+#structural to standard
+applywarp --in=bet_check/test_structural.anat/T1_biascorr_brain.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=diffusion.bedpostX/xfms/str2standard_warp --out=diffusion.bedpostX/xfms/reg_check/str2standard_check.nii.gz
+
+slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain diffusion.bedpostX/xfms/reg_check/str2standard_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/str2standard_check.ppm
+
+echo "starting diff2standard check"
+
+#diffusion to standard
+applywarp --in=nodif_brain.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=diffusion.bedpostX/xfms/str2standard_warp --premat=diffusion.bedpostX/xfms/diff2str.mat --out=diffusion.bedpostX/xfms/reg_check/diff2standard_check.nii.gz
+
+slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain diffusion.bedpostX/xfms/reg_check/diff2standard_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/diff2standard_check.ppm
+
+echo "starting convert warp check"
+
+#diffusion to standard with convertwarp
+applywarp --in=nodif_brain.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=diffusion.bedpostX/xfms/diff2standard --out=diffusion.bedpostX/xfms/reg_check/diff2standard_check_applywarp.nii.gz
+
+slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain diffusion.bedpostX/xfms/reg_check/diff2standard_check_applywarp.nii.gz -a diffusion.bedpostX/xfms/reg_check/diff2standard_check_appywarp.ppm
+
+echo "starting ants"
+
+
+#ANTS pipeline
+
+ants_brains.sh -s t1_UBC.nii.gz -o
+
+ants_diff2struct.sh -d nodif_brain.nii.gz -s ants_brains/BrainExtractionBrain.nii.gz -o
+
+ants_struct2stand.sh -s ants_brains/BrainExtractionBrain.nii.gz -o
+
+ants_regcheck.sh -d nodif_brain.nii.gz -w ants_struct2stand/structural2standard.nii.gz -i ants_struct2stand/standard2structural.nii.gz -r ants_diff2struct/rigid0GenericAffine.mat
+
+echo "finished test_reg"
+echo $(date)
+
