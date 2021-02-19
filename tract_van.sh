@@ -966,7 +966,7 @@ function tractVAN() {
     touch xtract_options.txt
     echo "--nsamples=${nsamples}" >> xtract_options.txt
     echo "--nsamples=500 using -ptx_options ${codedir}/xtract_options.txt"
-    xtract -bpx diffusion.bedpostX -out myxtract -species HUMAN -ptx_options ${codedir}/xtract_options.txt
+    #xtract -bpx diffusion.bedpostX -out myxtract -species HUMAN -ptx_options ${codedir}/xtract_options.txt
 
     #xtract_stats
     #xtract_stats -d ${tempdir}/dti_ -xtract myxtract -w diffusion.bedpostX/xfms/standard2diff.nii.gz -keepfiles -r ${tempdir}/dti_FA.nii.gz
@@ -1284,10 +1284,6 @@ function tractVAN() {
     outname=`basename ${template} .nii.gz` #for parsing output to probtrackx below
     echo "outname is: ${outname}"
     
-    #mask template by gray matter: optional
-    #cp ${template} .
-    #fslmaths ${outname} -mul ${tempdir}/hardsegmentation/GM_mask_MNI ${outname}
-
     #generate list of seeds
     if [[ ! -d ${tempdir}/${outname}_seeds/ ]] ;
     then
@@ -1318,6 +1314,8 @@ function tractVAN() {
                 echo "probtrackx2 \
                 --samples=${tempdir}/diffusion.bedpostX/merged \
                 --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
+                --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
+                --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
                 --seed=${region} \
                 --dir=${tempdir}/probtrackx/${outname}/${region_name}/ \
                 --targetmasks=${tempdir}/${outname}_seeds/seeds_targets_list.txt \
@@ -1425,7 +1423,6 @@ function tractVAN() {
     
 }
 
-echo "I got to here"
 
 ######################################################################
 
@@ -1433,13 +1430,10 @@ echo "I got to here"
 
 ######################################################################
 
-echo "I got to here here"
 
 #call function
 
 tractVAN
-
-echo "but I didn't get here"
 
 echo "tract_van.sh completed"
 
@@ -1450,7 +1444,7 @@ echo $(date) >> $log
 echo "Clean up: copy files to outdir & remove tempdir" >> $log
 echo "" >> $log
 
-echo "copying files from tempdir: ${tempdir} to outdir: ${outdir}"
+echo "Copying files from tempdir: ${tempdir} to outdir: ${outdir}"
 cp -fpR . ${outdir}
 cd ${outdir}
 rm slurm*
