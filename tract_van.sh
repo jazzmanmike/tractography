@@ -44,8 +44,8 @@ Mandatory
 Optional
 --acqparams     acquisition parameters (custom values, for Eddy/TopUp, or leave acqparams.txt in basedir)
 --index         diffusion PE directions (custom values, for Eddy/TopUp, or leave index.txt in basedir)
---segmentation  additional segmentation template (for segmentation: standard is Yeo7)
---parcellation  additional parcellation template (for connectomics: standard is AAL90 cortical)
+--segmentation  additional segmentation template (for segmentation: default is Yeo7)
+--parcellation  additional parcellation template (for connectomics: default is AAL90 cortical)
 --nsamples      number of samples for tractography (xtract, segmentation, connectome)
 -d              denoise: runs topup & eddy (see code for default acqparams/index parameters or enter custom as above)
 -p              parallel processing (slurm)*
