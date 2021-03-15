@@ -84,7 +84,7 @@ exit 1
 ####################
 
 
-#set nsamples
+#set nsamples for tractography later (currently off)
 nsamples=5000
 
 
@@ -1023,7 +1023,7 @@ function tractVAN() {
 
 
     #Start segmentation: thalamus then GPi, right then left
-    #NB: nsamples set to 5000
+    #NB: nsamples set to 5000 at start
     
     
     #Thalamus
