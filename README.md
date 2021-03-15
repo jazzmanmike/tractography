@@ -18,6 +18,9 @@ Set up:
 - Next there is some standard and freely available neuroimaging software that needs to be installed, plus Matlab if you want to run connectomics. 
 - Finally, you need to set the path to codedir in tract_van.sh, and that's it.
 
+Data requirements:
+- Only requires a T1, plus the diffusion data with corresponding bvecs & bvals
+
 Runs a variety of analyses of relevance to deep brain stimulation (DBS) surgery, including specific tracts of interest, segmentation of various
 subcortical nuclei, and whole brain connectomics. 
 
