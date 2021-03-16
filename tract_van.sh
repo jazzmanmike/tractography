@@ -709,7 +709,7 @@ function tractVAN() {
 
         echo "Bedpost jobs submitted to the cluster. Set to sleep for 2 hours."
          
-        sleep 2h
+        sleep 4h #sleep longer as is job quick but sometimes the queue is long
 
         #2. Combines individual file outputs
         #Check if all made: if not, resubmit for longer
@@ -737,7 +737,7 @@ function tractVAN() {
                 fi
             done
             
-            sleep 4h
+            sleep 6h
 
         fi
         
