@@ -707,7 +707,7 @@ function tractVAN() {
             sleep 1
         done
 
-        echo "Bedpost jobs submitted to the cluster. Set to sleep for 2 hours."
+        echo "Bedpost jobs submitted to the cluster. Set to sleep for 4 hours to allow for any Slurm queue."
          
         sleep 4h #sleep longer as is job quick but sometimes the queue is long
 
@@ -728,7 +728,7 @@ function tractVAN() {
                 echo ${slice}
                 if [ ! -f ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_`printf %04d ${slice}`/mean_S0samples.nii.gz ] ;
                 then
-                    echo "${slice} not run: resubmitting for longer (4 hours)"
+                    echo "${slice} not run: resubmitting for longer (4 hours) with a longer wait (6 hours)"
                     sleep 2
                     echo "Step-by-step bedpostx command_files/command_`printf %04d ${slice}`.sh"
                     rm -r ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_`printf %04d ${slice}`
