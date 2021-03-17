@@ -24,6 +24,7 @@ usage: $0 options
 tract_van.sh
 
 (c) Michael Hart, University of British Columbia, August 2020
+Co-developed with Dr Rafael Romero-Garcia, University of Cambridge
 
 Function to run tractography on clinical DBS data (e.g. from UBC Functional Neurosurgery Programme)
 
