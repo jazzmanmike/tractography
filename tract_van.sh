@@ -731,9 +731,16 @@ function tractVAN() {
                     echo "${slice} not run: resubmitting for longer (4 hours) with a longer wait (6 hours)"
                     sleep 2
                     echo "Step-by-step bedpostx command_files/command_`printf %04d ${slice}`.sh"
-                    rm -r ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_`printf %04d ${slice}`
+                    
+                    #remove directory if exists - if doesn't either initial call or this one will produce required files & overwrite if required
+                    if [ -d ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_`printf %04d ${slice}` ] ;
+                    then
+                        rm -r ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_`printf %04d ${slice}`
+                    fi
+                    
                     sbatch --time=04:00:00 ${tempdir}/diffusion.bedpostX/command_files/command_`printf %04d ${slice}`.sh
                     sleep 1
+                    
                 fi
             done
             
@@ -785,6 +792,14 @@ function tractVAN() {
     
     
     #Final outputs need to be diff2standard.nii.gz & standard2diff.nii.gz for probtrackx2/xtract
+
+    #Check if fsl_anat finished
+    if [ ! -f ${tempdir}/structural.anat/T1_biascorr_brain.nii.gz ] ;
+    then
+        echo "Waiting for fsl_anat to finish - set to sleep for 6h"
+        Sleep 6h
+    fi
+
 
     echo "starting diff2str"
 

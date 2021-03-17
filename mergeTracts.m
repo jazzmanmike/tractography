@@ -8,7 +8,7 @@ display(['mergeTracts(' path_dir_in ',' parcellation ')']);
 path_dir=[path_dir_in '/probtrackx/' parcellation]; %path to probtrackx data
 dir_seg=dir(path_dir);
 
-%numRand=5000; %number of seeds per region - deprecated
+numRand=5000; %number of seeds per region - check matches with tract_van.sh
 
 %initiate
 mean_connectivity=[];
