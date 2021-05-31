@@ -1,9 +1,9 @@
-%SEGMENT_CLUSTERS 
+%SEGMENTATIONC_CLUSTERING
 %Part of the DBS tractography ('tract_van') code
 %Complimentary script to probtrackx -omatrix2 option
 %Performs k-means segmentation of target nucleus
 %
-%NB: run from the patient hardsegmentation_omatrix2 directory
+%NB: run from the patient segmentation_omatrix2 directory
 %
 % Michael Hart, University of British Columbia, November 2020
 

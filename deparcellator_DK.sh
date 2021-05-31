@@ -13,19 +13,18 @@ usage: $0 options
 
 =============================================================================================
 
-deparcellator.sh
+deparcellator_DK.sh
 
-Splits up a numbered volume (e.g. parcellation template) into its constituents & makes a .txt list
-Also creates co-ordinates & names them based on Harvard-Oxford cortical structural atlas
+As deparcellator but for DK atlas
 
 Example:
 
-deparcellator.sh parcellation.nii.gz
+deparcellator_DK.sh parcellation.nii.gz
 
 ***Entirely based on code from Dr Rafael Romero-Garcia ('El Cunado'), University of Cambridge - Muchas Gracias Cunado!***
 
 
-Written by Michael Hart, University of British Columbia, October 2020
+Written by Michael Hart, University of British Columbia, April 2021
 
 =============================================================================================
 
@@ -59,9 +58,7 @@ else
     exit 1
 fi
 
-#touch xyz.txt
-#touch parcelnames.txt
-
+newID=1;
 while [ ${nParcel} -le  ${numParcels} ]
 do
     
@@ -78,10 +75,9 @@ do
         echo "removing ${current_parcel} as it's empty"
         rm ${current_parcel}
     else
-        echo ${outdir}/Seg`printf %04d ${nParcel}`.nii.gz >> ${outdir}/seeds_targets_list.txt
-        fslstats ${outdir}/Seg`printf %04d ${nParcel}` -c >> ${outdir}/xyz.txt
-        atlasquery -a "Harvard-Oxford Cortical Structural Atlas" \
-        -m ${outdir}/Seg`printf %04d ${nParcel}` | head -n 1 >> ${outdir}/parcelnames.txt
+        mv ${current_parcel} ${outdir}/Seg`printf %04d newID`.nii.gz
+        newID=$(( $newID+1 ))
+        echo ${newID}
     fi
     
     nParcel=$((${nParcel}+1))

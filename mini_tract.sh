@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-# tract_van.sh
+# mini_tract.sh
 #
 #
-# Michael Hart, University of British Columbia, August 2020 (c)
+# Michael Hart, University of British Columbia, May 2021 (c)
 
 #define
 
@@ -21,20 +21,18 @@ usage: $0 options
 
 =============================================================================================
 
-tract_van.sh
+mini_tract.sh
 
-(c) Michael Hart, University of British Columbia, August 2020
+(c) Michael Hart, University of British Columbia, May 2021
 Co-developed with Dr Rafael Romero-Garcia, University of Cambridge
 
-Function to run tractography on clinical DBS data (e.g. from UBC Functional Neurosurgery Programme)
+Quick tractography run: set up for VIM DBS analysis
 
-Based on the following data: GE scanner, 3 Tesla, 32 Direction DTI protocol
-
-Can run with tract_QC.sh for post run quality control
+Based on tract_van.sh
 
 Example:
 
-tract_van.sh --T1=mprage.nii.gz --data=diffusion.nii.gz --bvecs=bvecs.txt --bvals=bvals.txt
+mini_tract.sh --T1=mprage.nii.gz --data=diffusion.nii.gz --bvecs=bvecs.txt --bvals=bvals.txt
 
 Options:
 
@@ -64,17 +62,14 @@ Pipeline
 5.  FDT pipeline
 6.  BedPostX*
 7.  Registration
-8.  XTRACT (including custom DBS tracts)
-9.  Segmentation (probtrackx2)
-10. Connectomics (probtrackx2)*
+8.  XTRACT (custom DBS tracts & CST call active: XTRACT off)
+9.  Segmentation (probtrackx2, with bit_segmentation.sh)
+10. Connectomics (probtrackx2, with bit_connectome.sh - off)*
 
-Version:    1.1 April 2021
+Version:    1.0 May 2021
 
-History:    1.1 adaptation for quality control;
-                new bet call;
-                new segmentation functionality for DK atlas;
-                save dtifit tensor;
-                more extensive cleanup.
+History:    n/a
+            
 
 NB: requires Matlab, Freesurfer, FSL, ANTs, and set path to codedir
 NNB: SGE / GPU acceleration - change eddy, bedpostx, probtrackx2, and XTRACT calls
@@ -274,8 +269,6 @@ else
     echo "Cannot locate additional parcellation template file: ${template_test}. Please ensure the ${template_test} is in this directory. Will continue with AAL90 parcellation template."
 fi
 
-#nsamples
-echo "nsamples: ${nsamples}"
 
 #make output directory
 
@@ -329,26 +322,27 @@ bvals=${outdir}/${bvals}
 
 #Start logfile: if already exists (and therefore script previously run) stops here
 
-if [ ! -f ${outdir}/van_tractography.txt ] ;
+if [ ! -f ${outdir}/mini_tract.txt ] ;
 then
     echo "making log file"
-    touch van_tractography.txt
+    touch mini_tract.txt
 else
-    echo "log file already exists - tract_van.sh has probably been run already"
+    echo "log file already exists - mini_tract.sh has probably been run already"
     if [ "$overwrite" == 1 ] ;
     then
-        touch van_tractography.txt
+        rm mini_tract.txt
+        touch mini_tract.txt
     else
         echo "no overwrite permission"
-    exit 1
+        exit 1
     fi
 fi
 
-log=van_tractography.txt
+log=mini_tract.txt
 echo $(date) >> ${log}
 echo "${0}" >> ${log}
 echo "${@}" >> ${log}
-echo "Starting tract_van.sh"
+echo "Starting mini_tract.sh"
 echo "" >> ${log}
 echo "Options are: ${options}" >> ${log}
 echo "" >> ${log}
@@ -363,7 +357,7 @@ echo "" >> ${log}
 ##################
 
 
-function tractVAN() {
+function miniTRACT() {
 
 
     ########################
@@ -455,7 +449,7 @@ function tractVAN() {
     
     mkdir bet
     cd bet
-    bet ${structural} -A
+    bet ${structural} bet -A
     cd ..
     
     
@@ -475,52 +469,11 @@ function tractVAN() {
     echo "" >> $log
     echo $(date) >> $log
     echo "3. Starting Freesurfer" >> $log
-
-    export QA_TOOLS=${HOME}/code/QAtools_v1.2
-    export SUBJECTS_DIR=`pwd`
-
-    echo "QA Tools set up as ${QA_TOOLS}"
-    echo "QA Tools set up as ${QA_TOOLS}" >> ${log}
-    echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}"
-    echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}" >> ${log}
     
-    if [ "${parallel}" == 1 ] ;
-    then
-        echo "submitting Freesurfer to slurm"
-        
-        #create batch file
-        touch batch_FS.sh
-        echo '#!/bin/bash' >> batch_FS.sh
-        printf "structural=%s\n" "${structural}" >> batch_FS.sh
-        printf "tempdir=%s\n" "${tempdir}" >> batch_FS.sh
-
-        #run Freesurfer
-        echo 'recon-all -i ${structural} -s ${tempdir}/FS -all' >> batch_FS.sh
-
-        #run QA tools
-        #NB: images don't always run with Linux/SLURM
-        echo '${QA_TOOLS}/recon_checker -s ${tempdir}/FS' >> batch_FS.sh
-
-        #additional parcellation for connectomics
-        echo 'parcellation2individuals.sh' >> batch_FS.sh
-        
-        #run as batch
-        chmod 777 ${tempdir}/batch_FS.sh
-        
-        sbatch --time 18:00:00 --nodes=1 --mem=30000 --tasks-per-node=12 --cpus-per-task=1 batch_FS.sh
-
-    else
-        echo "running Freesurfer sequentially"
-        recon-all -i ${structural} -s ${tempdir}/FS -all
-
-        #run QA tools
-        ${QA_TOOLS}/recon_checker -s ${tempdir}/FS
-
-        #additional parcellation for connectomics
-        parcellation2individuals.sh
-
-    fi
-   
+    echo "FreeSurfer off currently: copying across data from previous run"
+    echo "FreeSurfer off currently: copying across data from previous run" >> ${log}
+    
+    test -d ${basedir}/FS && cp -fpR ${basedir}/FS .
 
     echo "" >> $log
     echo $(date) >> $log
@@ -947,19 +900,19 @@ function tractVAN() {
     echo "starting ants"
 
 
-    #ANTS pipeline
+    #ANTS pipeline: off for speed
 
-    cp ${structural} ${tempdir}/structural.nii.gz
+    #cp ${structural} ${tempdir}/structural.nii.gz
 
-    ants_brains.sh -s structural.nii.gz
+    #ants_brains.sh -s structural.nii.gz
 
-    ants_diff2struct.sh -d nodif_brain.nii.gz -s ants_brains/BrainExtractionBrain.nii.gz
+    #ants_diff2struct.sh -d nodif_brain.nii.gz -s ants_brains/BrainExtractionBrain.nii.gz
 
-    ants_struct2stand.sh -s ants_brains/BrainExtractionBrain.nii.gz
+    #ants_struct2stand.sh -s ants_brains/BrainExtractionBrain.nii.gz
 
-    ants_regcheck.sh -d nodif_brain.nii.gz -w ants_struct2stand/structural2standard.nii.gz -i ants_struct2stand/standard2structural.nii.gz -r ants_diff2struct/rigid0GenericAffine.mat
+    #ants_regcheck.sh -d nodif_brain.nii.gz -w ants_struct2stand/structural2standard.nii.gz -i ants_struct2stand/standard2structural.nii.gz -r ants_diff2struct/rigid0GenericAffine.mat
         
-    ants_corthick.sh -s ${structural}
+    #ants_corthick.sh -s ${structural}
 
 
     #Check cost functions
@@ -991,10 +944,59 @@ function tractVAN() {
     echo "8. Starting XTRACT" >> $log
     
     
+    #Only makes CST run from XTRACT
+    
+    #right
+    mkdir -p ${tempdir}/myxtract/tracts/cst_r
+    touch ${tempdir}/myxtract/tracts/cst_r/targets.txt
+    echo "${FSLDIR}/etc/xtract_data/Human/cst_r/target" >> ${tempdir}/myxtract/tracts/cst_r/targets.txt
+    
+    probtrackx2 --samples=${tempdir}/diffusion.bedpostX/merged \
+    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
+    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
+    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
+    --seedref=${FSLDIR}/data/standard/MNI152_T1_1mm \
+    --seed=${FSLDIR}/etc/xtract_data/Human/cst_r/seed \
+    --waypoints=myxtract/tracts/cst_r/targets.txt \
+    --avoid=${FSLDIR}/etc/xtract_data/Human/cst_r/exclude \
+    --dir=myxtract/tracts/cst_r \
+    --loopcheck \
+    --forcedir \
+    --opd \
+    --ompl \
+    --sampvox=1 \
+    --randfib=1 \
+    --verbose=1 \
+    --out=density \
+    --nsamples=3000
+    
+    #left
+    mkdir ${tempdir}/myxtract/tracts/cst_l
+    touch ${tempdir}/myxtract/tracts/cst_l/targets.txt
+    echo "${FSLDIR}/etc/xtract_data/Human/cst_l/target" >> ${tempdir}/myxtract/tracts/cst_l/targets.txt
+    
+    probtrackx2 --samples=${tempdir}/diffusion.bedpostX/merged \
+    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
+    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
+    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
+    --seedref=${FSLDIR}/data/standard/MNI152_T1_1mm \
+    --seed=${FSLDIR}/etc/xtract_data/Human/cst_l/seed \
+    --waypoints=myxtract/tracts/cst_l/targets.txt \
+    --avoid=${FSLDIR}/etc/xtract_data/Human/cst_l/exclude \
+    --dir=myxtract/tracts/cst_l \
+    --loopcheck \
+    --forcedir \
+    --opd \
+    --ompl \
+    --sampvox=1 \
+    --randfib=1 \
+    --verbose=1 \
+    --out=density \
+    --nsamples=3000
+    
+    
+    
     #XTRACT
-    touch xtract_options.txt
-    echo "--nsamples=${nsamples}" >> xtract_options.txt
-    echo "--nsamples=500 using -ptx_options ${codedir}/xtract_options.txt"
     #xtract -bpx diffusion.bedpostX -out myxtract -species HUMAN -ptx_options ${codedir}/xtract_options.txt
 
     #xtract_stats
@@ -1022,259 +1024,11 @@ function tractVAN() {
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "9. Starting Segmentation with ProbTrackX" >> $log
+    echo "9. Starting bit_segmentation with ProbTrackX" >> $log
     
     
-    #Define atlas
-    if [ $(imtest ${atlas}) == 1 ];
-    then
-        echo "${atlas} dataset ok"
-    else
-        atlas="${codedir}/templates/Yeo7.nii.gz"
-        echo "No atlas for segmentation has been supplied - using the Yeo 7 RSN atlas"
-    fi
+    bit_segmentation.sh
     
-    echo "Atlas for hard segmentation is: ${atlas}" >> $log
-    
-    #Mask atlas by hemisphere (faster & avoids conflict with connectome)
-    mkdir -p ${tempdir}/segmentation
-    cd segmentation
-    cp ${atlas} .
-    outname=`basename ${atlas} .nii.gz` #for parsing outputs
-    fslmaths ${atlas} -mas ${codedir}/templates/right_brain.nii.gz ${outname}_right
-    fslmaths ${atlas} -mas ${codedir}/templates/left_brain.nii.gz ${outname}_left
-    
-    #Split atlas into individual ROI files
-    deparcellator.sh ${outname}_right
-    deparcellator.sh ${outname}_left
-    
-    cd ../
-
-
-    #Start segmentation: thalamus then GPi, right then left
-    #NB: nsamples set to 5000 at start
-    
-    
-    #Thalamus
-
-    echo "Running segmentation of thalamus"
-    echo "Starting thalamic segmentation" >> $log
-
-    #Right thalamus
-    
-    #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
-    applywarp --in=${tempdir}/first_segmentation/first-R_Thal_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/thalamus_right_MNI.nii.gz
-
-    fslmaths ${tempdir}/segmentation/thalamus_right_MNI.nii.gz -bin ${tempdir}/segmentation/thalamus_right_MNI.nii.gz
-
-
-    #Seed to target
-    probtrackx2 --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seedref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz \
-    --seed=${tempdir}/segmentation/thalamus_right_MNI.nii.gz \
-    --targetmasks=${tempdir}/segmentation/${outname}_right_seeds/seeds_targets_list.txt \
-    --dir=thalamus2cortex_right \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --os2t \
-    --nsamples=5000
-           
-    #hard segmentation
-    find_the_biggest thalamus2cortex_right/seeds_to_* thalamus2cortex_right/biggest_segmentation
-
-
-    #Alternative segmentation method (hypothesis free): requires subsequent Matlab run for kmeans segmentation
-
-    #Make GM cortical mask in MNI space
-    applywarp --in=${tempdir}/structural.anat/T1_fast_pve_1.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/GM_mask_MNI
-
-    fslmaths ${tempdir}/segmentation/GM_mask_MNI -thr 0.5 ${tempdir}/segmentation/GM_mask_MNI #generous threshold
-
-    fslmaths ${tempdir}/segmentation/GM_mask_MNI -bin ${tempdir}/segmentation/GM_mask_MNI
-
-    #omatrix2
-    probtrackx2 --omatrix2 \
-    --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seed=${tempdir}/segmentation/thalamus_right_MNI.nii.gz \
-    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
-    --dir=thalamus2cortex_right_omatrix2 \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --nsamples=5000
-    
-    echo "kmeans segmentation in Matlab"
-    cd thalamus2cortex_right_omatrix2
-    file_matlab=temp_Segmentation
-    echo "segmentation_clustering;exit" > ${file_matlab}.m
-    matlab -nodisplay -r "${file_matlab}"
-    fslcpgeom fdt_paths clusters
-    cd ..
-
-    #Left thalamus
-    
-    #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
-    applywarp --in=${tempdir}/first_segmentation/first-L_Thal_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/thalamus_left_MNI.nii.gz
-
-    fslmaths ${tempdir}/segmentation/thalamus_left_MNI.nii.gz -bin ${tempdir}/segmentation/thalamus_left_MNI.nii.gz
-
-    #Seed to target
-    probtrackx2 --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seedref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz \
-    --seed=${tempdir}/segmentation/thalamus_left_MNI.nii.gz \
-    --targetmasks=${tempdir}/segmentation/${outname}_left_seeds/seeds_targets_list.txt \
-    --dir=thalamus2cortex_left \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --os2t \
-    --nsamples=5000
-           
-    #hard segmentation
-    find_the_biggest thalamus2cortex_left/seeds_to_* thalamus2cortex_left/biggest_segmentation
-
-    #omatrix2
-    probtrackx2 --omatrix2 \
-    --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seed=${tempdir}/segmentation/thalamus_left_MNI.nii.gz \
-    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
-    --dir=thalamus2cortex_left_omatrix2 \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --nsamples=5000
-    
-    echo "kmeans segmentation in Matlab"
-    cd thalamus2cortex_left_omatrix2
-    file_matlab=temp_Segmentation
-    echo "segmentation_clustering;exit" > ${file_matlab}.m
-    matlab -nodisplay -r "${file_matlab}"
-    fslcpgeom fdt_paths clusters
-    cd ..
-
-
-    #Pallidum
-
-    echo "Running segmentation of pallidum"
-    echo "Starting pallidum segmentation" >> $log
-
-    #Right pallidum
-    
-    #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
-    applywarp --in=${tempdir}/first_segmentation/first-R_Pall_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/pallidum_right_MNI.nii.gz
-
-    fslmaths ${tempdir}/segmentation/pallidum_right_MNI.nii.gz -bin ${tempdir}/segmentation/pallidum_right_MNI.nii.gz
-
-
-    #Seed to target
-    probtrackx2 --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seedref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz \
-    --seed=${tempdir}/segmentation/pallidum_right_MNI.nii.gz \
-    --targetmasks=${tempdir}/segmentation/${outname}_right_seeds/seeds_targets_list.txt \
-    --dir=pallidum2cortex_right \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --os2t \
-    --nsamples=5000
-           
-    #hard segmentation
-    find_the_biggest pallidum2cortex_right/seeds_to_* pallidum2cortex_right/biggest_segmentation
-
-    #Alternative segmentation method (hypothesis free): requires subsequent Matlab run for kmeans segmentation
-
-    #omatrix2
-    probtrackx2 --omatrix2 \
-    --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seed=${tempdir}/segmentation/pallidum_right_MNI.nii.gz \
-    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
-    --dir=pallidum2cortex_right_omatrix2 \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --nsamples=5000
-    
-    echo "kmeans segmentation in Matlab"
-    cd pallidum2cortex_right_omatrix2
-    file_matlab=temp_Segmentation
-    echo "segmentation_clustering;exit" > ${file_matlab}.m
-    matlab -nodisplay -r "${file_matlab}"
-    fslcpgeom fdt_paths clusters
-    cd ..
-
-    #Left pallidum
-    
-    #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
-    applywarp --in=${tempdir}/first_segmentation/first-L_Pall_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/pallidum_left_MNI.nii.gz
-
-    fslmaths ${tempdir}/segmentation/pallidum_left_MNI.nii.gz -bin ${tempdir}/segmentation/pallidum_left_MNI.nii.gz
-
-    #Seed to target
-    probtrackx2 --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seedref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz \
-    --seed=${tempdir}/segmentation/pallidum_left_MNI.nii.gz \
-    --targetmasks=${tempdir}/segmentation/${outname}_left_seeds/seeds_targets_list.txt \
-    --dir=pallidum2cortex_left \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --os2t \
-    --nsamples=5000
-           
-    #hard segmentation
-    find_the_biggest pallidum2cortex_left/seeds_to_* pallidum2cortex_left/biggest_segmentation
-
-    #omatrix2
-    probtrackx2 --omatrix2 \
-    --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seed=${tempdir}/segmentation/pallidum_left_MNI.nii.gz \
-    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
-    --dir=pallidum2cortex_left_omatrix2 \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --nsamples=5000
-    
-    echo "kmeans segmentation in Matlab"
-    cd pallidum2cortex_right_omatrix2
-    file_matlab=temp_Segmentation
-    echo "segmentation_clustering;exit" > ${file_matlab}.m
-    matlab -nodisplay -r "${file_matlab}"
-    fslcpgeom fdt_paths clusters
-    cd ..
     
     echo "" >> $log
     echo $(date) >> $log
@@ -1294,156 +1048,10 @@ function tractVAN() {
     echo "10. Starting connectomics with probtrackx2" >> $log
     
     
-    if [ $(imtest ${template}) == 1 ];
-    then
-        echo "${template} dataset for connectomics ok"
-    else
-        template="${codedir}/templates/AAL90.nii.gz"
-        echo "No parcellation template for connectomics has been supplied - using AAL90 cortical (78 nodes)"
-    fi
-    
-    maxParcel=`fslstats ${template} -R | awk '{print $2}'`
-    numParcels=`printf "%0.0f\n" $maxParcel`
-    echo "numParcels: ${numParcels}"
-    
-    echo "Parcellation template is: ${template}" >> ${log}
-    echo "numParcels: ${numParcels}" >> ${log}
-    cp ${template} .
-    
-    outname=`basename ${template} .nii.gz` #for parsing output to probtrackx below
-    echo "outname is: ${outname}"
-    
-    #generate list of seeds
-    if [[ ! -d ${tempdir}/${outname}_seeds/ ]] ;
-    then
-        echo "${outname}: making seeds & seeds_list"
-        deparcellator.sh ${outname}
-    else
-        echo "${outname} seeds already made"
-    fi
+    echo "bit_connectome.sh off currently"
+    echo "bit_connectome.sh off currently" >> ${log}
+    #bit_connectome.sh
 
-    if [ "${parallel}" == 1 ] ;
-    then
-        echo "Running probtrackx connectome in parallel"
-        echo "Starting connectome --parallel" >> $log
-        echo "" >> $log
-
-        #1. Generate scripts
-
-        mkdir -p ${tempdir}/probtrackx/${outname}/commands/
-
-        if [ ! -f ${tempdir}/probtrackx/${outname}/commands/Seg`printf %04d $numParcels`.sh ] ;
-        then
-            echo "Generating tractography scripts"
-            for region in `cat  ${tempdir}/${outname}_seeds/seeds_targets_list.txt`;
-            do
-                region_name=`basename ${region} .nii.gz`
-                touch ${tempdir}/probtrackx/${outname}/commands/${region_name}.sh
-                echo "#!/bin/bash" >> ${tempdir}/probtrackx/${outname}/commands/${region_name}.sh
-                echo "probtrackx2 \
-                --samples=${tempdir}/diffusion.bedpostX/merged \
-                --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-                --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-                --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-                --seed=${region} \
-                --dir=${tempdir}/probtrackx/${outname}/${region_name}/ \
-                --targetmasks=${tempdir}/${outname}_seeds/seeds_targets_list.txt \
-                --s2tastext \
-                --pd \
-                --loopcheck \
-                --forcedir \
-                --opd \
-                --os2t \
-                --nsamples=5000" >> ${tempdir}/probtrackx/${outname}/commands/${region_name}.sh
-            done
-        else
-            echo "Tractography scripts have been made already."
-        fi
-        
-    
-        seedFinished=`(ls ${tempdir}/probtrackx/${outname}/Seg*/matrix_seeds_to_all_targets 2>/dev/null | wc -l)`
-
-
-        #2. Submit to cluster
-
-        if [ "${seedFinished}" != "$numParcels" ] && [ -f ${tempdir}/diffusion.bedpostX/mean_S0samples.nii.gz ]
-        then
-            echo "Submitting tractography scripts to cluster"
-            chmod 777 ${tempdir}/probtrackx/${outname}/commands/*
-            for cmdFiles in ${tempdir}/probtrackx/${outname}/commands/*.sh
-            do
-                num_bars=$(( $(echo "$cmdFiles" |   grep -o "/"  | wc -l) + 1))
-                seg_id=`echo $cmdFiles | cut -d "/" -f $num_bars`
-                seg_id2=`echo $seg_id | sed "s/...$//g"`
-                if [ ! -f ${tempdir}/probtrackx/${outname}/${seg_id2}/matrix_seeds_to_all_targets ]
-                then
-                    sbatch --time=10:00:00 ${cmdFiles}
-                    sleep 10
-                fi
-            done
-            
-            echo "Tractography jobs submitted to the cluster - *might* need to re-run script after they have finished (check with qstats or squeue) to merge tracts."
-            echo "Check number of jobs finished (number of parcels=${numParcels})."
-            echo "ls ${tempdir}/${outname}_connectome/Seg*/matrix_seeds_to_all_targets | wc -l"
-           
-            #Significant pause: ~1min per parcel for tracing (depends on volume)
-            sleep 10h
-        else
-            echo "Tractography scripts have finished running on cluster already."
-        fi
-        
-        
-        seedFinished=`(ls ${tempdir}/probtrackx/${outname}/Seg*/matrix_seeds_to_all_targets 2>/dev/null | wc -l)`
-
-
-        #3. Merge tracts
-        echo "Number of jobs finished: ${seedFinished} Should equal number of parcels: ${numParcels}"
-        echo "checking: ${tempdir}/probtrackx/connectome/connectivity_strlines.jpg"
-        if [ ! -f ${tempdir}/probtrackx/connectome/connectivity_strlines.jpg ]
-        then
-            if [ "${seedFinished}" = "$numParcels" ]
-            then
-                echo "Combining tractography images"
-                file_matlab=temp_${numParcels}_mergeTracts
-                pwd
-                echo "Matlab file is: ${file_matlab}.m"
-                echo "Matlab file variable is: ${file_matlab}"
-
-                echo "mergeTracts('${tempdir}/','${outname}');exit" > ${file_matlab}.m
-                matlab -nodisplay -r "${file_matlab}"
-                
-                mkdir -p ${tempdir}/probtrackx/${outname}/connectome
-                mv ${tempdir}/probtrackx/${outname}/connectivity* ${tempdir}/probtrackx/${outname}/connectome/
-                
-                echo "Connectome tractography complete without errors!"
-            else
-                echo "Tractography seeds still running: ${seedFinished} != ${numParcels}. Merge tracts not run. Re-run after they have finish in: ${tempdir}/probtrackx/${outname}."
-            fi
-        else
-            echo "Connectome already computed: results in ${tempdir}/probtrackx/${outname}/connectome/"
-        fi
- 
-    else
-        echo "Running probtrackx connectome in serial with --network option"
-        echo "Starting connectome in serial with --network option" >> $log
-        echo "" >> $log
-        
-        #only 500 seeds and no option '-opd'
-        probtrackx2 \
-        --network \
-        --samples=${tempdir}/diffusion.bedpostX/merged \
-        --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-        --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-        --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-        --dir=${outname} \
-        --seed=${outname}_seeds/seeds_targets_list.txt \
-        --loopcheck \
-        --onewaycondition \
-        --forcedir \
-        --nsamples=500
-        
-    fi
- 
     
     echo "" >> $log
     echo $(date) >> $log
@@ -1462,9 +1070,9 @@ function tractVAN() {
 
 #call function
 
-tractVAN
+miniTRACT
 
-echo "tract_van.sh completed"
+echo "mini_tract.sh completed"
 
 #cleanup
 
@@ -1473,12 +1081,14 @@ echo $(date) >> $log
 echo "Clean up: copy files to outdir & remove tempdir" >> $log
 echo "" >> $log
 
-rm slurm*
-rm diffusion.bedpostX/command_files/*
-rm diffusion.bedpostX/logs/*
-rm -r probtrackx/*/Seg*
-rm -r probtrackx/*/commands
+test -f slurm* && rm slurm* 
+rm -r diffusion.bedpostX/command_files/*
+rm -r diffusion.bedpostX/logs/*
 rm -r *seeds
+rm -r FS/
+
+#rm -r probtrackx/*/Seg*
+#rm -r probtrackx/*/commands
 
 echo "Copying files from tempdir: ${tempdir} to outdir: ${outdir}"
 cp -fpR . ${outdir}
@@ -1494,6 +1104,6 @@ echo "" >> $log
 #close up
 
 echo "" >> $log
-echo "all done with tract_van.sh" >> ${log}
+echo "all done with mini_tract.sh" >> ${log}
 echo $(date) >> ${log}
 echo "" >> ${log}
