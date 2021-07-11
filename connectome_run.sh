@@ -14,10 +14,11 @@
 #################
 
 
-template=${codedir}/templates/500.sym_4mm.nii.gz #change this
-
 tempdir=`pwd`
 codedir=${HOME}/code/github/tractography
+
+template=${codedir}/templates/500.sym_4mm.nii.gz #change this
+
 FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
 parallel=1;
 test -f connectome_run_log.txt && rm connectome_run_log.txt

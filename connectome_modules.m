@@ -71,7 +71,7 @@ gamma = 2.5;
 
 M = ct_modularity_consensus_fun(CIJ, gamma, 10);
 
-%% C: Create module ID's
+%% C: Create module IDs
 
 %make list of moduleIDs in text files
 mkdir connectome_modules
@@ -85,14 +85,7 @@ for iModule = 1:max(M)
     fclose(fileID);
 end
 
-%Seeds
-seeds = load(strcat(patient, 'diffusion/', template, '_seeds/seeds_targets_list.txt'));
-copyfile(sprintf('%s',seeds), 'seeds_targets_list.txt')
-
-%now work in bash
-system('connectome_modules.sh');
-
-
+          
 %% All done
 
 
