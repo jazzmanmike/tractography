@@ -66,11 +66,11 @@ verbose=
 
 #initialise options
 
-while getopts "shov" OPTION
+while getopts "s:hov" OPTION
 do
     case $OPTION in
     s)
-        stimulationfield=1
+        stimulationfield=$OPTARG
         ;;
     h)
         usage
@@ -122,7 +122,7 @@ echo "stimulation field data are: ${stimulationfield}"
 
 echo "Checking mandatory files are ok (stimulation field image)"
 
-stimulationfield_test=${basedir}/${volume}
+stimulationfield_test=${basedir}/${stimulationfield}
 
 if [ $(imtest $stimulationfield_test) == 1 ] ;
 then
@@ -146,37 +146,41 @@ fi
 
 #Output files: if already exists (and therefore script previously run) stops here unless 'overwrite' on
 
-if [ ! -d ${basedir}/diffusion/tract_stats ] ;
+outname=`basename ${stimulationfield} .nii.gz` #for parsing outputs
+
+if [ ! -d ${basedir}/diffusion/tract_stats_${outname} ] ;
 then
     echo "making output files"
-    mkdir -p tract_stats
-    touch tract_stats/tract_stats.txt
+    mkdir -p tract_stats_${outname}
+    touch tract_stats_${outname}/tract_stats.txt
 else
     echo "output directory already exists - tract_stats.sh has probably been run already"
     if [ "$overwrite" == 1 ] ;
     then
         echo "overwrite on: making new output files"
-        rm -r tract_stats/
-        mkdir -p tract_stats
-        touch tract_stats/tract_stats.txt
+        rm -r tract_stats_${outname}/
+        mkdir -p tract_stats_${outname}
+        touch tract_stats_${outname}/tract_stats.txt
     else
         echo "no overwrite permission - exiting now"
     exit 1
     fi
 fi
 
-outdir=${basedir}/diffusion/tract_stats
+outdir=${basedir}/diffusion/tract_stats_${outname}
 
 log=${outdir}/tract_stats.txt
 echo $(date) >> ${log}
 echo "${0}" >> ${log}
 echo "Starting tract_stats.sh"
 echo "" >> ${log}
-echo "Options are: ${options}" >> ${log}
+echo "Options are: ${@}" >> ${log}
+echo "" >> ${log}
+echo "stimulation field is: ${stimulationfield_test}" >> ${log}
 echo "" >> ${log}
 echo "basedir is: ${basedir}/diffusion" >> ${log}
 echo "" >> ${log}
-echo "outdir is: ${basedir}/diffusion/tract_stats" >> ${log}
+echo "outdir is: ${basedir}/diffusion/tract_stats_${outname}" >> ${log}
 echo "" >> ${log}
 
 
@@ -190,7 +194,7 @@ echo "1. Tract analysis" >> ${log}
 echo "" >> ${log}
 
 
-if [ ! -d ${basedir}/diffusion/dbsxtract ] ;
+if [ -d ${basedir}/diffusion/dbsxtract/ ] ;
 then
     echo "Directory dbsxtract exists: performing tract based analysis"
     echo "Directory dbsxtract exists: performing tract based analysis" >> ${log}
@@ -199,23 +203,24 @@ then
     echo "DRT" >> ${log}
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/drt_l/density.nii.gz -thr 0.5 ${outdir}/drt_l_thr
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/drt_r/density.nii.gz -thr 0.5 ${outdir}/drt_r_thr
+    
+    fslmaths ${outdir}/drt_l_thr -bin ${outdir}/drt_l_thr
+    fslmaths ${outdir}/drt_r_thr -bin ${outdir}/drt_r_thr
 
     echo "DRT_l" >> ${log}
-    fslstats ${outdir}/drt_l_thr -V >> ${log}
+    fslstats ${outdir}/drt_l_thr -V | awk '{print $1}' >> ${log}
 
     echo "DRT_r" >> ${log}
-    fslstats ${outdir}/drt_r_thr -V >> ${log}
+    fslstats ${outdir}/drt_r_thr -V | awk '{print $1}' >> ${log}
 
-    fslmaths ${outdir}/drt_l_thr -sub ${stimulationfield_test} ${outdir}/drt_l_lesion
-    fslmaths ${outdir}/drt_r_thr -sub ${stimulationfield_test} ${outdir}/drt_r_lesion
+    fslmaths ${outdir}/drt_l_thr -mul ${stimulationfield_test} ${outdir}/drt_l_lesion
+    fslmaths ${outdir}/drt_r_thr -mul ${stimulationfield_test} ${outdir}/drt_r_lesion
 
     echo "DRT_l_lesion" >> ${log}
-    fslstats ${outdir}/drt_l_lesion -V >> ${log}
-    echo "" >> ${log}
+    fslstats ${outdir}/drt_l_lesion -V | awk '{print $1}' >> ${log}
 
     echo "DRT_r_lesion" >> ${log}
-    fslstats ${outdir}/drt_r_lesion -V >> ${log}
-    echo "" >> ${log}
+    fslstats ${outdir}/drt_r_lesion -V | awk '{print $1}' >> ${log}
 
     echo "" >> ${log}
 
@@ -225,22 +230,23 @@ then
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_l/density.nii.gz -thr 0.5 ${outdir}/nf_l_thr
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_r/density.nii.gz -thr 0.5 ${outdir}/nf_r_thr
 
+    fslmaths ${outdir}/nf_l_thr -bin ${outdir}/nf_l_thr
+    fslmaths ${outdir}/nf_r_thr -bin ${outdir}/nf_r_thr
+    
     echo "NF_l" >> ${log}
-    fslstats ${outdir}/nf_l_thr -V >> ${log}
+    fslstats ${outdir}/nf_l_thr -V | awk '{print $1}' >> ${log}
 
     echo "NF_r" >> ${log}
-    fslstats ${outdir}/nf_r_thr -V >> ${log}
+    fslstats ${outdir}/nf_r_thr -V | awk '{print $1}' >> ${log}
 
-    fslmaths ${outdir}/nf_l_thr -sub ${stimulationfield_test} ${outdir}/nf_l_lesion
-    fslmaths ${outdir}/nf_r_thr -sub ${stimulationfield_test} ${outdir}/nf_r_lesion
+    fslmaths ${outdir}/nf_l_thr -mul ${stimulationfield_test} ${outdir}/nf_l_lesion
+    fslmaths ${outdir}/nf_r_thr -mul ${stimulationfield_test} ${outdir}/nf_r_lesion
 
     echo "NF_l_lesion" >> ${log}
-    fslstats ${outdir}/nf_l_lesion -V >> ${log}
-    echo "" >> ${log}
+    fslstats ${outdir}/nf_l_lesion -V | awk '{print $1}' >> ${log}
 
     echo "NF_r_lesion" >> ${log}
-    fslstats ${outdir}/nf_r_lesion -V >> ${log}
-    echo "" >> ${log}
+    fslstats ${outdir}/nf_r_lesion -V | awk '{print $1}' >> ${log}
 
     echo "" >> ${log}
 
@@ -250,22 +256,23 @@ then
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_l/density.nii.gz -thr 0.5 ${outdir}/pf_l_thr
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_r/density.nii.gz -thr 0.5 ${outdir}/pf_r_thr
 
+    fslmaths ${outdir}/pf_l_thr -bin ${outdir}/pf_l_thr
+    fslmaths ${outdir}/pf_r_thr -bin ${outdir}/pf_r_thr
+    
     echo "PF_l" >> ${log}
-    fslstats ${outdir}/pf_l_thr -V >> ${log}
+    fslstats ${outdir}/pf_l_thr -V | awk '{print $1}' >> ${log}
 
     echo "PF_r" >> ${log}
-    fslstats ${outdir}/pf_r_thr -V >> ${log}
+    fslstats ${outdir}/pf_r_thr -V | awk '{print $1}' >> ${log}
 
-    fslmaths ${outdir}/pf_l_thr -sub ${stimulationfield_test} ${outdir}/pf_l_lesion
-    fslmaths ${outdir}/pf_r_thr -sub ${stimulationfield_test} ${outdir}/pf_r_lesion
+    fslmaths ${outdir}/pf_l_thr -mul ${stimulationfield_test} ${outdir}/pf_l_lesion
+    fslmaths ${outdir}/pf_r_thr -mul ${stimulationfield_test} ${outdir}/pf_r_lesion
 
     echo "PF_l_lesion" >> ${log}
-    fslstats ${outdir}/pf_l_lesion -V >> ${log}
-    echo "" >> ${log}
+    fslstats ${outdir}/pf_l_lesion -V | awk '{print $1}' >> ${log}
 
     echo "PF_r_lesion" >> ${log}
-    fslstats ${outdir}/pf_r_lesion -V >> ${log}
-    echo "" >> ${log}
+    fslstats ${outdir}/pf_r_lesion -V | awk '{print $1}' >> ${log}
 
     echo "" >> ${log}
 
@@ -289,38 +296,39 @@ echo "" >> ${log}
 echo "2. Segmentation analysis" >> ${log}
 echo "" >> ${log}
 
+fslmaths ${stimulationfield_test} -binv inversion_mask
 
 #Cluster
 
-if [ ! -d ${basedir}/diffusion/thalamus2cortex_left_cluster ] ;
+if [ -d ${basedir}/diffusion/thalamus2cortex_left_cluster ] ;
 then
     echo "Directory thalamus2cortex_left_cluster exists: performing tract based analysis"
     echo "Directory thalamus2cortex_left_cluster exists: performing tract based analysis" >> ${log}
     
     #baseline analysis
     echo "Cluster 21 left" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_21.nii.gz -V >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_21.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 23 left" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_23.nii.gz -V >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_23.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 27 left" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_27.nii.gz -V >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_27.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster dentate right" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_dentate_right.nii.gz -V >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_dentate_right.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
     
     #lesioned analysis
     echo "Cluster 21 left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_21.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_21_left_lesioned.nii.gz
-    fslstats ${outdir}/cluster_21_left_lesioned.nii.gz -V >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_21.nii.gz -mul inversion_mask ${outdir}/cluster_21_left_lesioned.nii.gz
+    fslstats ${outdir}/cluster_21_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 23 left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_23.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_23_left_lesioned.nii.gz
-    fslstats ${outdir}/cluster_23_left_lesioned.nii.gz -V >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_23.nii.gz -mul inversion_mask ${outdir}/cluster_23_left_lesioned.nii.gz
+    fslstats ${outdir}/cluster_23_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 27 left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_27.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_27_left_lesioned.nii.gz
-    fslstats ${outdir}/cluster_27_left_lesioned.nii.gz -V >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_27.nii.gz -mul inversion_mask ${outdir}/cluster_27_left_lesioned.nii.gz
+    fslstats ${outdir}/cluster_27_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster dentate right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_dentate_right.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_dentate_right_lesioned.nii.gz
-    fslstats ${outdir}/cluster_dentate_right_lesioned.nii.gz -V >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_dentate_right.nii.gz -mul inversion_mask ${outdir}/cluster_dentate_right_lesioned.nii.gz
+    fslstats ${outdir}/cluster_dentate_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
 
 else
@@ -329,34 +337,34 @@ else
 fi
     
 
-if [ ! -d ${basedir}/diffusion/thalamus2cortex_right_cluster ] ;
+if [ -d ${basedir}/diffusion/thalamus2cortex_right_cluster ] ;
 then
     echo "Directory thalamus2cortex_right_cluster exists: performing tract based analysis"
     echo "Directory thalamus2cortex_right_cluster exists: performing tract based analysis" >> ${log}
     
-    echo "Cluster 21 right" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_21.nii.gz -V >> ${log}
-    echo "Cluster 23 right" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_23.nii.gz -V >> ${log}
-    echo "Cluster 27 right" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_27.nii.gz -V >> ${log}
+    echo "Cluster 55 right" >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_55.nii.gz -V | awk '{print $1}' >> ${log}
+    echo "Cluster 57 right" >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_57.nii.gz -V | awk '{print $1}' >> ${log}
+    echo "Cluster 61 right" >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_61.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster dentate left" >> ${log}
-    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_dentate_left.nii.gz -V >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_dentate_left.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
     
     #lesioned analysis
-    echo "Cluster 21 right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_21.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_21_right_lesioned.nii.gz
-    fslstats ${outdir}/cluster_21_right_lesioned.nii.gz -V >> ${log}
-    echo "Cluster 23 right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_23.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_23_right_lesioned.nii.gz
-    fslstats ${outdir}/cluster_23_right_lesioned.nii.gz -V >> ${log}
-    echo "Cluster 27 right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_27.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_27_right_lesioned.nii.gz
-    fslstats ${outdir}/cluster_27_right_lesioned.nii.gz -V >> ${log}
+    echo "Cluster 55 right lesioned" >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_55.nii.gz -mul inversion_mask ${outdir}/cluster_55_right_lesioned.nii.gz
+    fslstats ${outdir}/cluster_55_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
+    echo "Cluster 57 right lesioned" >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_57.nii.gz -mul inversion_mask ${outdir}/cluster_57_right_lesioned.nii.gz
+    fslstats ${outdir}/cluster_57_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
+    echo "Cluster 61 right lesioned" >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_61.nii.gz -mul inversion_mask ${outdir}/cluster_61_right_lesioned.nii.gz
+    fslstats ${outdir}/cluster_61_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster dentate left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_dentate_left.nii.gz -sub ${stimulationfield_test} ${outdir}/cluster_dentate_left_lesioned.nii.gz
-    fslstats ${outdir}/cluster_dentate_left_lesioned.nii.gz -V >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_dentate_left.nii.gz -mul inversion_mask ${outdir}/cluster_dentate_left_lesioned.nii.gz
+    fslstats ${outdir}/cluster_dentate_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
 
 else
@@ -367,15 +375,16 @@ fi
 
 #Hard segmentation
 
-if [ ! -f ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz ] ;
+if [ -f ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz ] ;
 then
     echo "Directory thalamus2cortex_left exists: performing tract based analysis"
     echo "Directory thalamus2cortex_left exists: performing tract based analysis" >> ${log}
     
     echo "Hard segmentation thalamus left" >> ${log}
-    fslstats -K ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz -V >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz -sub ${stimulationfield_test} ${outdir}/biggest_segmentation_left_lesioned.nii.gz
-    fslstats -K ${outdir}/biggest_segmentation_left_lesioned.nii.gz -V >> ${log}
+    fslstats -K ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz -V | awk '{print $1}' >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz -mul inversion_mask ${outdir}/biggest_segmentation_left_lesioned.nii.gz
+    echo "Hard segmentation thalamus left lesioned" >> ${log}
+    fslstats -K ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz ${outdir}/biggest_segmentation_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
     
 else
@@ -384,15 +393,16 @@ else
 fi
 
 
-if [ ! -f ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz ] ;
+if [ -f ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz ] ;
 then
     echo "Directory thalamus2cortex_right exists: performing tract based analysis"
     echo "Directory thalamus2cortex_right exists: performing tract based analysis" >> ${log}
     
     echo "Hard segmentation thalamus right" >> ${log}
-    fslstats -K ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz -V >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz -sub ${stimulationfield_test} ${outdir}/biggest_segmentation_right_lesioned.nii.gz
-    fslstats -K ${outdir}/biggest_segmentation_right_lesioned.nii.gz -V >> ${log}
+    fslstats -K ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz -V | awk '{print $1}' >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz -mul inversion_mask ${outdir}/biggest_segmentation_right_lesioned.nii.gz
+    echo "Hard segmentation thalamus right lesioned" >> ${log}
+    fslstats -K ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz ${outdir}/biggest_segmentation_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
     
 else
@@ -403,15 +413,16 @@ fi
 
 #kmeans
 
-if [ ! -f ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz ] ;
+if [ -f ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz ] ;
 then
     echo "Directory thalamus2cortex_left_omatrix2/clusters.nii.gz exists: performing tract based analysis"
     echo "Directory thalamus2cortex_left_omatrix2/clusters.nii.gz exists: performing tract based analysis" >> ${log}
     
     echo "kmeans segmentation thalamus left" >> ${log}
-       fslstats -K ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz -V >> ${log}
-       fslmaths ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz -sub ${stimulationfield_test} ${outdir}/clusters_left_lesioned.nii.gz
-       fslstats -K ${outdir}/clusters_left_lesioned.nii.gz -V >> ${log}
+       fslstats -K ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz -V | awk '{print $1}' >> ${log}
+       fslmaths ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz -mul inversion_mask ${outdir}/kms_clusters_left_lesioned.nii.gz
+       echo "kmeans segmentation thalamus left lesioned" >> ${log}
+       fslstats -K ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz ${outdir}/kms_clusters_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
        echo "" >> ${log}
     
 else
@@ -420,15 +431,16 @@ else
 fi
 
 
-if [ ! -f ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz ] ;
+if [ -f  ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz ] ;
 then
     echo "Directory thalamus2cortex_right_omatrix2/clusters.nii.gz exists: performing tract based analysis"
     echo "Directory thalamus2cortex_right_omatrix2/clusters.nii.gz exists: performing tract based analysis" >> ${log}
     
     echo "kmeans segmentation thalamus right" >> ${log}
-       fslstats -K ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz -V >> ${log}
-       fslmaths ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz -sub ${stimulationfield_test} ${outdir}/clusters_right_lesioned.nii.gz
-       fslstats -K ${outdir}/clusters_right_lesioned.nii.gz -V >> ${log}
+       fslstats -K ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz -V | awk '{print $1}' >> ${log}
+       fslmaths ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz -mul inversion_mask ${outdir}/kms_clusters_right_lesioned.nii.gz
+       echo "kmeans segmentation thalamus right lesioned" >> ${log}
+       fslstats -K ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz ${outdir}/kms_clusters_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
        echo "" >> ${log}
     
 else
@@ -453,15 +465,15 @@ echo "" >> ${log}
 
 
 
-if [ ! -d ${basedir}/diffusion/connectome_modules_left ] ;
+if [ -d ${basedir}/diffusion/connectome_modules_left ] ;
 then
     echo "Directory connectome_modules_left exists: performing tract based analysis"
     echo "Directory connectome_modules_left exists: performing tract based analysis" >> ${log}
     
     echo "Module-based hard segmentation thalamus left" >> ${log}
-    fslstats -K ${basedir}/diffusion/connectome_modules_left/biggest_segmentation.nii.gz -V >> ${log}
+    fslstats -K ${basedir}/diffusion/connectome_modules_left/biggest_segmentation.nii.gz -V | awk '{print $2}' >> ${log}
     fslmaths ${basedir}/diffusion/connectome_modules_left/biggest_segmentation.nii.gz -sub ${stimulationfield_test} ${outdir}/module_segmentation_left_lesioned.nii.gz
-    fslstats -K ${outdir}/module_segmentation_left_lesioned.nii.gz -V >> ${log}
+    fslstats -K ${outdir}/module_segmentation_left_lesioned.nii.gz -V | awk '{print $2}' >> ${log}
     echo "" >> ${log}
     
 else
@@ -470,15 +482,15 @@ else
 fi
 
 
-if [ ! -d ${basedir}/diffusion/connectome_modules_right ] ;
+if [ -d ${basedir}/diffusion/connectome_modules_right ] ;
 then
     echo "Directory connectome_modules_right exists: performing tract based analysis"
     echo "Directory connectome_modules_right exists: performing tract based analysis" >> ${log}
     
     echo "Module-based hard segmentation thalamus right" >> ${log}
-    fslstats -K ${basedir}/diffusion/connectome_modules_right/biggest_segmentation.nii.gz -V >> ${log}
+    fslstats -K ${basedir}/diffusion/connectome_modules_right/biggest_segmentation.nii.gz -V | awk '{print $2}' >> ${log}
     fslmaths ${basedir}/diffusion/connectome_modules_right/biggest_segmentation.nii.gz -sub ${stimulationfield_test} ${outdir}/module_segmentation_right_lesioned.nii.gz
-    fslstats -K ${outdir}/module_segmentation_right_lesioned.nii.gz -V >> ${log}
+    fslstats -K ${outdir}/module_segmentation_right_lesioned.nii.gz -V | awk '{print $2}' >> ${log}
     echo "" >> ${log}
     
 else

@@ -406,53 +406,10 @@ function miniTRACT() {
     echo $(date) >> $log
     echo "2. Starting advanced anatomy" >> $log
 
-    if [ "${parallel}" == 1 ] ;
-    then
-      echo "submitting fsl_anat to slurm"
-      
-      #make batch file
-      touch batch_anat.sh
-      echo '#!/bin/bash' >> batch_anat.sh
-      printf "structural=%s\n" "${structural}" >> batch_anat.sh
-      printf "tempdir=%s\n" "${tempdir}" >> batch_anat.sh
-      echo 'fsl_anat -i ${structural} -o ${tempdir}/structural --clobber --nosubcortseg' >> batch_anat.sh
-      echo 'slicer structural.anat/T1_biascorr_brain.nii.gz -a ${tempdir}/QC/fsl_anat_bet.ppm' >> batch_anat.sh
 
-      chmod 777 ${tempdir}/batch_anat.sh
-      
-      sbatch --time 12:00:00 --nodes=1 --mem=30000 --tasks-per-node=12  --cpus-per-task=1 batch_anat.sh
-   
-    else
-      echo "running fsl_anat sequentially"
-      fsl_anat -i ${structural} -o structural
-    fi
+    bit_anatomy.sh
 
-    #now run first (e.g. for thalamus & pallidum to be used later)
-   
-    echo "running fsl first"
-    
-    mkdir ${tempdir}/first_segmentation
-    
-    cd first_segmentation
-    
-    cp ${structural} .
-    
-    structural_name=`basename ${structural} .nii.gz`
-    
-    run_first_all -i ${structural_name} -o first -d
-    
-    first_roi_slicesdir ${structural} first-*nii.gz
 
-    cd ../
-    
-    #quick bet call
-    
-    mkdir bet
-    cd bet
-    bet ${structural} bet -A
-    cd ..
-    
-    
     echo "" >> $log
     echo $(date) >> $log
     echo "Finished with advanced anatomy" >> $log
@@ -469,11 +426,8 @@ function miniTRACT() {
     echo "" >> $log
     echo $(date) >> $log
     echo "3. Starting Freesurfer" >> $log
-    
-    echo "FreeSurfer off currently: copying across data from previous run"
-    echo "FreeSurfer off currently: copying across data from previous run" >> ${log}
-    
-    test -d ${basedir}/FS && cp -fpR ${basedir}/FS .
+        
+    #test -d ${basedir}/FS && cp -fpR ${basedir}/FS .
 
     echo "" >> $log
     echo $(date) >> $log

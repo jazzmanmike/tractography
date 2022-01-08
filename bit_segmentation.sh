@@ -65,7 +65,7 @@ fi
 
 ######
 
-#1. DK
+#2. DK
 
 ######
 
@@ -89,14 +89,7 @@ else
 
     #Registration
 
-    #flirt affine
-    flirt -in dkn_volume.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz -omat dkn_affine.mat -dof 12
-    
-    #fnirt
-    fnirt --in=dkn_volume.nii.gz --aff=dkn_affine.mat --cout=dkn2mni_warp --config=T1_2_MNI152_2mm
-    
-    #applyxfm
-    applywarp --in=dkn_volume.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz --warp=dkn2mni_warp --out=dkn_volume_MNI.nii.gz --interp=nn
+    flirt -in dkn_volume.nii.gz -ref ${codedir}/templates/500.sym_4mm.nii.gz -o dkn_volume_check -dof 12 -interp nearestneighbour
 
     #Renumber sequentially
     file_matlab=temp_DK_renumDesikan
@@ -231,7 +224,7 @@ fi
 
 #######
 
-#2. Yeo
+#3. Yeo
 
 #######
 
@@ -264,7 +257,11 @@ cd ../
 #NB: nsamples set to 5000 at start
 
 
+#Hard segmentation
+
+
 #Thalamus
+
 
 #Right thalamus: hard segmentation
 
@@ -299,47 +296,6 @@ else
     
     #Run find_the_biggest later
 
-fi
-
-#Right thalamus: kmeans
-
-#Alternative segmentation method (hypothesis free): requires subsequent Matlab run for kmeans segmentation
-
-if [[ -d ${tempdir}/thalamus2cortex_right_omatrix2/ ]] && [[ -d ${tempdir}/segmentation/${outname}_right_seeds/ ]] ;
-then
-    echo "kmeans of right thalamus already run with: ${outname}"
-    echo "kmeans of right thalamus already run with: ${outname}" >> ${log}
-else
-    echo "Running kmeans segmentation of right thalamus with: ${outname}"
-    echo "Running kmeans segmentation of right thalamus with: ${outname}" >> ${log}
-
-    #Make GM cortical mask in MNI space
-    applywarp --in=${tempdir}/structural.anat/T1_fast_pve_1.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/GM_mask_MNI
-
-    fslmaths ${tempdir}/segmentation/GM_mask_MNI -thr 0.5 ${tempdir}/segmentation/GM_mask_MNI #generous threshold
-
-    fslmaths ${tempdir}/segmentation/GM_mask_MNI -bin ${tempdir}/segmentation/GM_mask_MNI
-
-    #omatrix2
-    
-    touch ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
-    echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
-    echo "probtrackx2 --omatrix2 \
-    --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seed=${tempdir}/segmentation/thalamus_right_MNI.nii.gz \
-    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
-    --dir=thalamus2cortex_right_omatrix2 \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
-    chmod 777 ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
-    sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
-    
 fi
 
 
@@ -378,39 +334,9 @@ else
 
 fi
 
-#Left thalamus: kmeans
-
-if [[ -d ${tempdir}/thalamus2cortex_left_omatrix2/ ]] && [[ -d ${tempdir}/segmentation/${outname}_left_seeds/ ]] ;
-then
-    echo "kmeans of left thalamus already run with: ${outname}"
-    echo "kmeans of left thalamus already run with: ${outname}" >> ${log}
-else
-    echo "Running kmeans segmentation of left thalamus with: ${outname}"
-    echo "Running kmeans segmentation of left thalamus with: ${outname}" >> ${log}
-    
-    #omatrix2
-    touch ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
-    echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
-    echo "probtrackx2 --omatrix2 \
-    --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seed=${tempdir}/segmentation/thalamus_left_MNI.nii.gz \
-    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
-    --dir=thalamus2cortex_left_omatrix2 \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
-    chmod 777 ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
-    sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
-
-fi
-
 
 #Pallidum
+
 
 #Right pallidum: hard segmentation
 
@@ -450,40 +376,6 @@ else
 
     #run find_the_biggest at end
     
-fi
-
-
-#Right pallidum: kmeans
-
-if [[ -d ${tempdir}/pallidum2cortex_right_omatrix2/ ]] && [[ -d ${tempdir}/segmentation/${outname}_right_seeds/ ]] ;
-then
-    echo "kmeans of right pallidum already run with: ${outname}"
-    echo "kmeans of right pallidum already run with: ${outname}" >> ${log}
-else
-    echo "Running kmeans segmentation of right pallidum with: ${outname}"
-    echo "Running kmeans segmentation of right pallidum with: ${outname}" >> ${log}
-   
-    #Alternative segmentation method (hypothesis free): requires subsequent Matlab run for kmeans segmentation
-
-    #omatrix2
-    touch ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
-    echo "#!/bin/bash" >> ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
-    echo "probtrackx2 --omatrix2 \
-    --samples=${tempdir}/diffusion.bedpostX/merged \
-    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
-    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
-    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
-    --seed=${tempdir}/segmentation/pallidum_right_MNI.nii.gz \
-    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
-    --dir=pallidum2cortex_right_omatrix2 \
-    --loopcheck \
-    --onewaycondition \
-    --forcedir \
-    --opd \
-    --nsamples=5000" >> ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
-    chmod 777 ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
-    sbatch --time=3:00:00 ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
-
 fi
 
 
@@ -527,6 +419,140 @@ else
 
 fi
 
+
+#do actual segmentation at the end: pause to allow completion of probtrackx2 call
+echo "Sleep after sbatch calls"
+echo "Sleep after sbatch calls" >> ${log}
+echo $(date) >> ${log}
+sleep 10h
+echo "Resuming after sleep"
+echo "Resuming after sleep" >> ${log}
+echo $(date) >> ${log}
+
+
+##########
+
+#4. kmeans
+
+##########
+
+
+#Alternative segmentation method (hypothesis free): requires subsequent Matlab run for kmeans segmentation
+
+
+#Make grey matter mask in MNI space
+#Use ANTS preferentially
+if [[ -f $tempdir}/ACT/CorticalThicknessNormalizedToTemplate.nii.gz ]] ;
+then
+    fslmaths ${tempdir}/ACT/CorticalThicknessNormalizedToTemplate.nii.gz -bin ${tempdir}/segmentation/GM_mask_MNI.nii.gz
+else
+    #Otherwise use FSL
+    applywarp --in=${tempdir}/structural.anat/T1_fast_pve_1.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/GM_mask_MNI
+    #binarise
+    fslmaths ${tempdir}/segmentation/GM_mask_MNI -thr 0.5 ${tempdir}/segmentation/GM_mask_MNI #generous threshold
+fi
+
+
+#Right thalamus: kmeans
+
+
+if [[ -d ${tempdir}/thalamus2cortex_right_omatrix2/ ]] && [[ -d ${tempdir}/segmentation/${outname}_right_seeds/ ]] ;
+then
+    echo "kmeans of right thalamus already run with: ${outname}"
+    echo "kmeans of right thalamus already run with: ${outname}" >> ${log}
+else
+    echo "Running kmeans segmentation of right thalamus with: ${outname}"
+    echo "Running kmeans segmentation of right thalamus with: ${outname}" >> ${log}
+
+    #omatrix2
+    
+    touch ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
+    echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
+    echo "probtrackx2 --omatrix2 \
+    --samples=${tempdir}/diffusion.bedpostX/merged \
+    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
+    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
+    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
+    --seed=${tempdir}/segmentation/thalamus_right_MNI.nii.gz \
+    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
+    --dir=thalamus2cortex_right_omatrix2 \
+    --loopcheck \
+    --onewaycondition \
+    --forcedir \
+    --opd \
+    --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
+    chmod 777 ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
+    sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
+    
+fi
+
+
+#Left thalamus: kmeans
+
+if [[ -d ${tempdir}/thalamus2cortex_left_omatrix2/ ]] && [[ -d ${tempdir}/segmentation/${outname}_left_seeds/ ]] ;
+then
+    echo "kmeans of left thalamus already run with: ${outname}"
+    echo "kmeans of left thalamus already run with: ${outname}" >> ${log}
+else
+    echo "Running kmeans segmentation of left thalamus with: ${outname}"
+    echo "Running kmeans segmentation of left thalamus with: ${outname}" >> ${log}
+    
+    #omatrix2
+    touch ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
+    echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
+    echo "probtrackx2 --omatrix2 \
+    --samples=${tempdir}/diffusion.bedpostX/merged \
+    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
+    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
+    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
+    --seed=${tempdir}/segmentation/thalamus_left_MNI.nii.gz \
+    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
+    --dir=thalamus2cortex_left_omatrix2 \
+    --loopcheck \
+    --onewaycondition \
+    --forcedir \
+    --opd \
+    --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
+    chmod 777 ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
+    sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
+
+fi
+
+
+#Right pallidum: kmeans
+
+if [[ -d ${tempdir}/pallidum2cortex_right_omatrix2/ ]] && [[ -d ${tempdir}/segmentation/${outname}_right_seeds/ ]] ;
+then
+    echo "kmeans of right pallidum already run with: ${outname}"
+    echo "kmeans of right pallidum already run with: ${outname}" >> ${log}
+else
+    echo "Running kmeans segmentation of right pallidum with: ${outname}"
+    echo "Running kmeans segmentation of right pallidum with: ${outname}" >> ${log}
+   
+    #Alternative segmentation method (hypothesis free): requires subsequent Matlab run for kmeans segmentation
+
+    #omatrix2
+    touch ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
+    echo "#!/bin/bash" >> ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
+    echo "probtrackx2 --omatrix2 \
+    --samples=${tempdir}/diffusion.bedpostX/merged \
+    --mask=${tempdir}/diffusion.bedpostX/nodif_brain_mask \
+    --xfm=${tempdir}/diffusion.bedpostX/xfms/standard2diff \
+    --invxfm=${tempdir}/diffusion.bedpostX/xfms/diff2standard \
+    --seed=${tempdir}/segmentation/pallidum_right_MNI.nii.gz \
+    --target2=${tempdir}/segmentation/GM_mask_MNI.nii.gz \
+    --dir=pallidum2cortex_right_omatrix2 \
+    --loopcheck \
+    --onewaycondition \
+    --forcedir \
+    --opd \
+    --nsamples=5000" >> ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
+    chmod 777 ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
+    sbatch --time=3:00:00 ${tempdir}/batch_pallidum2cortex_right_omatrix2.sh
+
+fi
+
+
 #Left pallidum: kmeans
 if [[ -d ${tempdir}/pallidum2cortex_left_omatrix2/ ]] && [[ -d ${tempdir}/segmentation/${outname}_left_seeds/ ]] ;
 then
@@ -558,14 +584,12 @@ else
 fi
 
 
-#do actual segmentation at the end: pause to allow completion of probtrackx2 call
-echo "Sleep after sbatch calls"
-echo "Sleep after sbatch calls" >> ${log}
-echo $(date) >> ${log}
-sleep 10h
-echo "Resuming after sleep"
-echo "Resuming after sleep" >> ${log}
-echo $(date) >> ${log}
+
+################################
+
+## 5. Post tractography analysis
+
+################################
 
 
 #Cluster

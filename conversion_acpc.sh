@@ -10,8 +10,8 @@
 
 #1. Initialise & set directories
 
-workingdir=/SD/SD_001/diffusion
-codedir=${HOME}/code/
+workingdir=/home/mgh40/rds/hpc-work/SD/SD_001/diffusion
+codedir=/home/mgh40/github/tractography
 
 cd ${workingdir}
 
@@ -21,9 +21,18 @@ cd ${workingdir}
 #Use inverse transform (affine only)
 #Input for calculation of transoforms was: structural.anat/T1_biascorr_brain
 
-applywarp --in=${HOME}/code/github/tractography/templates/sphere_AC --out=native_AC --ref=structural.anat/T1_biascorr_brain --warp=diffusion.bedpostX/xfms/standard2str_warp --interp=nn
 
-applywarp --in=${HOME}/code/github/tractography/templates/sphere_PC --out=native_PC --ref=structural.anat/T1_biascorr_brain --warp=diffusion.bedpostX/xfms/standard2str_warp --interp=nn
+applywarp --in=${HOME}/code/github/tractography/templates/sphere_AC \
+--ref=structural.anat/T1_biascorr_brain \
+--warp=diffusion.bedpostX/xfms/standard2str_warp \
+--out=native_AC \
+--interp=nn
+
+applywarp --in=${HOME}/code/github/tractography/templates/sphere_PC \
+--ref=structural.anat/T1_biascorr_brain \
+--warp=diffusion.bedpostX/xfms/standard2str_warp \
+--out=native_PC \
+--interp=nn
 
 
 #3. Co-ordinates

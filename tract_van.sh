@@ -415,7 +415,7 @@ function tractVAN() {
     if [ "${parallel}" == 1 ] ;
     then
       echo "submitting fsl_anat to slurm"
-      
+
       #make batch file
       touch batch_anat.sh
       echo '#!/bin/bash' >> batch_anat.sh
@@ -425,40 +425,40 @@ function tractVAN() {
       echo 'slicer structural.anat/T1_biascorr_brain.nii.gz -a ${tempdir}/QC/fsl_anat_bet.ppm' >> batch_anat.sh
 
       chmod 777 ${tempdir}/batch_anat.sh
-      
+
       sbatch --time 12:00:00 --nodes=1 --mem=30000 --tasks-per-node=12  --cpus-per-task=1 batch_anat.sh
-   
+
     else
       echo "running fsl_anat sequentially"
       fsl_anat -i ${structural} -o structural
     fi
 
     #now run first (e.g. for thalamus & pallidum to be used later)
-   
+
     echo "running fsl first"
-    
+
     mkdir ${tempdir}/first_segmentation
-    
+
     cd first_segmentation
-    
+
     cp ${structural} .
-    
+
     structural_name=`basename ${structural} .nii.gz`
-    
+
     run_first_all -i ${structural_name} -o first -d
-    
+
     first_roi_slicesdir ${structural} first-*nii.gz
 
     cd ../
-    
+
     #quick bet call
-    
+
     mkdir bet
     cd bet
     bet ${structural} -A
     cd ..
-    
-    
+
+
     echo "" >> $log
     echo $(date) >> $log
     echo "Finished with advanced anatomy" >> $log
@@ -483,11 +483,11 @@ function tractVAN() {
     echo "QA Tools set up as ${QA_TOOLS}" >> ${log}
     echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}"
     echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}" >> ${log}
-    
+
     if [ "${parallel}" == 1 ] ;
     then
         echo "submitting Freesurfer to slurm"
-        
+
         #create batch file
         touch batch_FS.sh
         echo '#!/bin/bash' >> batch_FS.sh
@@ -503,10 +503,10 @@ function tractVAN() {
 
         #additional parcellation for connectomics
         echo 'parcellation2individuals.sh' >> batch_FS.sh
-        
+
         #run as batch
         chmod 777 ${tempdir}/batch_FS.sh
-        
+
         sbatch --time 18:00:00 --nodes=1 --mem=30000 --tasks-per-node=12 --cpus-per-task=1 batch_FS.sh
 
     else
@@ -520,7 +520,7 @@ function tractVAN() {
         parcellation2individuals.sh
 
     fi
-   
+
 
     echo "" >> $log
     echo $(date) >> $log
@@ -541,7 +541,7 @@ function tractVAN() {
 
     if [ "${denoise}" == 1 ] ;
     then
-    
+
         echo "doing advanced de-noising with TopUp then Eddy"
 
         #TopUp
@@ -549,12 +549,12 @@ function tractVAN() {
         echo "Doing TopUp" >> $log
         echo $(date) >> $log
         echo "" >> $log
-        
+
         #check these are the different phase encode direction B0 volumes
         fslroi data A2P_b0 0 1
         fslroi data P2A_b0 1 1
         fslmerge -t A2P_P2A_b0 A2P_b0 P2A_b0
-        
+
         #option to set custom acqusition parameters if required, otherwise will use default
         if [ -f ${acqp} ] ; then
             cp ${acqp} acqparams.txt
@@ -563,24 +563,24 @@ function tractVAN() {
         else
             printf "0 -1 0 0.0646\n0 1 0 0.0646" > acqparams.txt
         fi
-        
+
         topup --imain=A2P_P2A_b0 --datain=acqparams.txt --config=b02b0.cnf --out=my_topup_results --iout=my_hifi_b0
-        
+
         echo "" >> $log
         echo "Finishing TopUp" >> $log
         echo $(date) >> $log
         echo "" >> $log
-        
+
         #Eddy
         echo "" >> $log
         echo "Doing Eddy" >> $log
         echo $(date) >> $log
         echo "" >> $log
-        
+
         #create files
         fslmaths my_hifi_b0 -Tmean my_hifi_b0 #output from TopUp
         bet my_hifi_b0 my_hifi_b0_brain -m
-       
+
         #option to set custom index (acquisition) file if required, otherwise will use default
         if [ -f ${index} ] ; then
            cp ${index} index.txt
@@ -594,7 +594,7 @@ function tractVAN() {
             done
             echo ${indx} > index.txt
         fi
-        
+
         #main eddy command
         eddy --imain=data \
         --mask=my_hifi_b0_brain_mask \
@@ -604,19 +604,19 @@ function tractVAN() {
         --bvals=${bvals} \
         --topup=my_topup_results \
         --out=eddy_corrected_data
-       
+
         echo "" >> $log
         echo "Finishing Eddy" >> $log
         echo $(date) >> $log
         echo "" >> $log
-        
+
         #eddy quality control
         #eddy_quad <eddy_output_basename> -idx <eddy_index_file> -par <eddy_acqparams_file> -m <nodif_mask> -b <bvals>
-        
+
     else
         echo "advanced de-noising turned off"
     fi
-    
+
 
     echo "" >> $log
     echo $(date) >> $log
@@ -673,38 +673,38 @@ function tractVAN() {
     echo "" >> $log
 
     mkdir -p ${tempdir}/diffusion
-    
+
     cp ${data} ${tempdir}/diffusion/data.nii.gz
     cp ${bvecs} ${tempdir}/diffusion/bvecs
     cp ${bvals} ${tempdir}/diffusion/bvals
     cp nodif_brain_mask.nii.gz ${tempdir}/diffusion/nodif_brain_mask.nii.gz
-    
+
     echo "BedPostX datacheck" >> $log
     bedpostx_datacheck ${tempdir}/diffusion >> $log
     echo "" >> $log
-    
+
     #check to run in parallel
 
     if [ "${parallel}" == 1 ] ;
     then
         echo "parallel is on"
         echo "Running BedPostX in parallel" >> ${log}
-        
+
         #create directory structure
         mkdir -p ${tempdir}/diffusion.bedpostX/command_files/
         mkdir -p ${tempdir}/diffusion.bedpostX/diff_slices/
         mkdir -p ${tempdir}/diffusion.bedpostX/xfms/
         mkdir -p ${tempdir}/diffusion.bedpostX/logs/monitor
         cp ${tempdir}/diffusion/* ${tempdir}/diffusion.bedpostX/
-        
+
         #make slices
         fslslice diffusion/data.nii.gz diffusion/data
         fslslice diffusion/nodif_brain_mask.nii.gz diffusion/nodif_brain_mask
-        
+
         nSlices=`fslval diffusion/data.nii.gz dim3`
         #nSlices=`awk '{print NF; exit}' diffusion/bvecs` #number of diffusion slices
         echo "${nSlices}"
-        
+
         #1. Make single slice bedpostx files & submit to cluster
         for ((slice=0; slice<${nSlices}; slice++));
         do #change for volumes syntax starting from 0
@@ -722,17 +722,17 @@ function tractVAN() {
         done
 
         echo "Bedpost jobs submitted to the cluster. Set to sleep for 4 hours to allow for any Slurm queue."
-         
+
         sleep 4h #sleep longer as is job quick but sometimes the queue is long
 
         #2. Combines individual file outputs
         #Check if all made: if not, resubmit for longer
-        
+
         bedpostFinished=`(ls ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_*/mean_S0samples.nii.gz 2>/dev/null | wc -l)`
-        
+
         echo "Number of bedpostx jobs finished: ${bedpostFinished}. Total should be equal to the number of slices: ${nSlices}"
         echo "ls ${tempdir}/diffusion.bedpostX/diff_slices/data_slice*/mean_dsamples.nii.gz | wc -l"
-        
+
         if [[ "${bedpostFinished}" -ne "${nSlices}" ]] ;
         then
             echo "bedpostFinished + nSlices do not match"
@@ -745,28 +745,28 @@ function tractVAN() {
                     echo "${slice} not run: resubmitting for longer (4 hours) with a longer wait (6 hours)"
                     sleep 2
                     echo "Step-by-step bedpostx command_files/command_`printf %04d ${slice}`.sh"
-                    
+
                     #remove directory if exists - if doesn't either initial call or this one will produce required files & overwrite if required
                     if [ -d ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_`printf %04d ${slice}` ] ;
                     then
                         rm -r ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_`printf %04d ${slice}`
                     fi
-                    
+
                     sbatch --time=04:00:00 ${tempdir}/diffusion.bedpostX/command_files/command_`printf %04d ${slice}`.sh
                     sleep 1
-                    
+
                 fi
             done
-            
+
             sleep 6h
 
         fi
-        
+
         bedpostFinished=`(ls ${tempdir}/diffusion.bedpostX/diff_slices/data_slice_*/mean_S0samples.nii.gz 2>/dev/null | wc -l)`
 
         echo "bedpostFinished: ${bedpostFinished}" >> ${log}
         echo "nSlices: ${nSlices}" >> ${log}
-        
+
         #3. If all made, run bedpostx_postproc to combine
         if  [[ "${bedpostFinished}" -eq "${nSlices}" ]] ;
         then
@@ -779,13 +779,13 @@ function tractVAN() {
             rm -r diffusion.bedpostX/
             bedpostx ${tempdir}/diffusion --model=1
         fi
-            
+
      else
         echo "running BedPostX in serial"
         #set to just sticks
         bedpostx ${tempdir}/diffusion --model=1
      fi
-     
+
 
     echo "" >> $log
     echo $(date) >> $log
@@ -803,8 +803,8 @@ function tractVAN() {
     echo "" >> $log
     echo $(date) >> $log
     echo "7. Starting registration" >> $log
-    
-    
+
+
     #Final outputs need to be diff2standard.nii.gz & standard2diff.nii.gz for probtrackx2/xtract
 
     #Check if fsl_anat finished
@@ -834,7 +834,7 @@ function tractVAN() {
 
     #structural to epi inverse (epi_reg)
     convert_xfm -omat diffusion.bedpostX/xfms/str2epi.mat -inverse diffusion.bedpostX/xfms/epi2str.mat
-    
+
     echo "starting flirt affine"
 
     #structural to standard affine
@@ -859,7 +859,7 @@ function tractVAN() {
 
     #epi to standard (6 & 12 DOF) (epi_reg)
     convert_xfm -omat diffusion.bedpostX/xfms/epi2standard.mat -concat diffusion.bedpostX/xfms/str2standard.mat diffusion.bedpostX/xfms/epi2str.mat
-    
+
     echo "starting standard2epi.mat"
 
     #standard to epi (12 & 6 DOF) (epi_reg)
@@ -884,63 +884,63 @@ function tractVAN() {
 
     #standard to diffusion: non-linear
     convertwarp -o diffusion.bedpostX/xfms/standard2diff -r nodif_brain.nii.gz --warp1=diffusion.bedpostX/xfms/standard2str_warp --postmat=diffusion.bedpostX/xfms/str2diff.mat
-    
+
     echo "starting epi2standard"
 
     #epi to standard: non-linear (epi_reg)
     convertwarp -o diffusion.bedpostX/xfms/epi2standard -r ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz --premat=diffusion.bedpostX/xfms/epi2str.mat --warp1=diffusion.bedpostX/xfms/str2standard_warp
-    
+
     echo "starting standard2epi"
 
     #standard to epi: non-linear (epi_reg)
     convertwarp -o diffusion.bedpostX/xfms/standard2epi -r nodif_brain.nii.gz --warp1=diffusion.bedpostX/xfms/standard2str_warp --postmat=diffusion.bedpostX/xfms/str2epi.mat
 
     #check images
-    
+
     mkdir diffusion.bedpostX/xfms/reg_check
-    
+
     #diffusion to structural
-    
+
     echo "starting diff2str check"
 
     #flirt
     flirt -in nodif_brain.nii.gz -ref structural.anat/T1_biascorr_brain.nii.gz -init diffusion.bedpostX/xfms/diff2str.mat -out diffusion.bedpostX/xfms/reg_check/diff2str_check.nii.gz
-    
+
     slicer structural.anat/T1_biascorr_brain.nii.gz diffusion.bedpostX/xfms/reg_check/diff2str_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/diff2str_check.ppm
 
     echo "starting epi_reg check"
 
     #epi_reg
     flirt -in nodif_brain.nii.gz -ref structural.anat/T1_biascorr_brain.nii.gz -init diffusion.bedpostX/xfms/epi2str.mat -out diffusion.bedpostX/xfms/reg_check/epi2str_check.nii.gz
-    
+
     slicer structural.anat/T1_biascorr_brain.nii.gz diffusion.bedpostX/xfms/reg_check/epi2str_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/epi2str_check.ppm
 
     echo "starting str2standard check"
 
     #structural to standard
     applywarp --in=structural.anat/T1_biascorr_brain.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz --warp=diffusion.bedpostX/xfms/str2standard_warp --out=diffusion.bedpostX/xfms/reg_check/str2standard_check.nii.gz
-    
+
     slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz diffusion.bedpostX/xfms/reg_check/str2standard_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/str2standard_check.ppm
-    
+
     echo "starting diff2standard check"
 
     #diffusion to standard: warp & premat
     applywarp --in=nodif_brain.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz --warp=diffusion.bedpostX/xfms/str2standard_warp --premat=diffusion.bedpostX/xfms/diff2str.mat --out=diffusion.bedpostX/xfms/reg_check/diff2standard_check.nii.gz
-    
+
     slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain diffusion.bedpostX/xfms/reg_check/diff2standard_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/diff2standard_check.ppm
-    
+
     echo "starting convert warp check"
 
     #diffusion to standard with convertwarp: diff2standard as used in XTRACT
     applywarp --in=nodif_brain.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=diffusion.bedpostX/xfms/diff2standard --out=diffusion.bedpostX/xfms/reg_check/diff2standard_check_applywarp.nii.gz
 
     slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain diffusion.bedpostX/xfms/reg_check/diff2standard_check_applywarp.nii.gz -a diffusion.bedpostX/xfms/reg_check/diff2standard_check_appywarp.ppm
-    
+
     echo "starting epi2standard check"
 
     #diffusion to standard: warp & premat
     applywarp --in=nodif_brain.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz --warp=diffusion.bedpostX/xfms/str2standard_warp --premat=diffusion.bedpostX/xfms/epi2str.mat --out=diffusion.bedpostX/xfms/reg_check/epi2standard_check.nii.gz
-    
+
     slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain diffusion.bedpostX/xfms/reg_check/epi2standard_check.nii.gz -a diffusion.bedpostX/xfms/reg_check/epi2standard_check.ppm
 
 
@@ -958,21 +958,21 @@ function tractVAN() {
     ants_struct2stand.sh -s ants_brains/BrainExtractionBrain.nii.gz
 
     ants_regcheck.sh -d nodif_brain.nii.gz -w ants_struct2stand/structural2standard.nii.gz -i ants_struct2stand/standard2structural.nii.gz -r ants_diff2struct/rigid0GenericAffine.mat
-        
+
     ants_corthick.sh -s ${structural}
 
 
     #Check cost functions
-    
+
     echo "Cost function of diff2str" >> $log
-    
+
     flirt -in nodif_brain.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz -schedule $FSLDIR/etc/flirtsch/measurecost1.sch -init diffusion.bedpostX/xfms/diff2str.mat >> $log
-    
+
     echo "Cost function of epi2str" >> $log
-    
+
     flirt -in nodif_brain.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz -schedule $FSLDIR/etc/flirtsch/measurecost1.sch -init diffusion.bedpostX/xfms/epi2str.mat >> $log
-    
-    
+
+
     echo "" >> $log
     echo $(date) >> $log
     echo "Finished with registration" >> $log
@@ -989,8 +989,8 @@ function tractVAN() {
     echo "" >> $log
     echo $(date) >> $log
     echo "8. Starting XTRACT" >> $log
-    
-    
+
+
     #XTRACT
     touch xtract_options.txt
     echo "--nsamples=${nsamples}" >> xtract_options.txt
@@ -999,11 +999,11 @@ function tractVAN() {
 
     #xtract_stats
     #xtract_stats -d ${tempdir}/dti_ -xtract myxtract -w diffusion.bedpostX/xfms/standard2diff.nii.gz -r ${tempdir}/dti_FA.nii.gz -keepfiles
-    
+
     #xtract_viewer
     #xtract_viewer -dir myxtract -species HUMAN
-    
-    
+
+
     #DBS XTRACT
     xtract -bpx ${tempdir}/diffusion.bedpostX -out dbsxtract -str ${codedir}/dbsxtract/structureList -p ${codedir}/dbsxtract
 
@@ -1023,8 +1023,8 @@ function tractVAN() {
     echo "" >> $log
     echo $(date) >> $log
     echo "9. Starting Segmentation with ProbTrackX" >> $log
-    
-    
+
+
     #Define atlas
     if [ $(imtest ${atlas}) == 1 ];
     then
@@ -1033,9 +1033,9 @@ function tractVAN() {
         atlas="${codedir}/templates/Yeo7.nii.gz"
         echo "No atlas for segmentation has been supplied - using the Yeo 7 RSN atlas"
     fi
-    
+
     echo "Atlas for hard segmentation is: ${atlas}" >> $log
-    
+
     #Mask atlas by hemisphere (faster & avoids conflict with connectome)
     mkdir -p ${tempdir}/segmentation
     cd segmentation
@@ -1043,25 +1043,25 @@ function tractVAN() {
     outname=`basename ${atlas} .nii.gz` #for parsing outputs
     fslmaths ${atlas} -mas ${codedir}/templates/right_brain.nii.gz ${outname}_right
     fslmaths ${atlas} -mas ${codedir}/templates/left_brain.nii.gz ${outname}_left
-    
+
     #Split atlas into individual ROI files
     deparcellator.sh ${outname}_right
     deparcellator.sh ${outname}_left
-    
+
     cd ../
 
 
     #Start segmentation: thalamus then GPi, right then left
     #NB: nsamples set to 5000 at start
-    
-    
+
+
     #Thalamus
 
     echo "Running segmentation of thalamus"
     echo "Starting thalamic segmentation" >> $log
 
     #Right thalamus
-    
+
     #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
     applywarp --in=${tempdir}/first_segmentation/first-R_Thal_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/thalamus_right_MNI.nii.gz
 
@@ -1083,7 +1083,7 @@ function tractVAN() {
     --opd \
     --os2t \
     --nsamples=5000
-           
+
     #hard segmentation
     find_the_biggest thalamus2cortex_right/seeds_to_* thalamus2cortex_right/biggest_segmentation
 
@@ -1111,7 +1111,7 @@ function tractVAN() {
     --forcedir \
     --opd \
     --nsamples=5000
-    
+
     echo "kmeans segmentation in Matlab"
     cd thalamus2cortex_right_omatrix2
     file_matlab=temp_Segmentation
@@ -1121,7 +1121,7 @@ function tractVAN() {
     cd ..
 
     #Left thalamus
-    
+
     #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
     applywarp --in=${tempdir}/first_segmentation/first-L_Thal_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/thalamus_left_MNI.nii.gz
 
@@ -1142,7 +1142,7 @@ function tractVAN() {
     --opd \
     --os2t \
     --nsamples=5000
-           
+
     #hard segmentation
     find_the_biggest thalamus2cortex_left/seeds_to_* thalamus2cortex_left/biggest_segmentation
 
@@ -1160,7 +1160,7 @@ function tractVAN() {
     --forcedir \
     --opd \
     --nsamples=5000
-    
+
     echo "kmeans segmentation in Matlab"
     cd thalamus2cortex_left_omatrix2
     file_matlab=temp_Segmentation
@@ -1176,7 +1176,7 @@ function tractVAN() {
     echo "Starting pallidum segmentation" >> $log
 
     #Right pallidum
-    
+
     #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
     applywarp --in=${tempdir}/first_segmentation/first-R_Pall_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/pallidum_right_MNI.nii.gz
 
@@ -1198,7 +1198,7 @@ function tractVAN() {
     --opd \
     --os2t \
     --nsamples=5000
-           
+
     #hard segmentation
     find_the_biggest pallidum2cortex_right/seeds_to_* pallidum2cortex_right/biggest_segmentation
 
@@ -1218,7 +1218,7 @@ function tractVAN() {
     --forcedir \
     --opd \
     --nsamples=5000
-    
+
     echo "kmeans segmentation in Matlab"
     cd pallidum2cortex_right_omatrix2
     file_matlab=temp_Segmentation
@@ -1228,7 +1228,7 @@ function tractVAN() {
     cd ..
 
     #Left pallidum
-    
+
     #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
     applywarp --in=${tempdir}/first_segmentation/first-L_Pall_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/pallidum_left_MNI.nii.gz
 
@@ -1249,7 +1249,7 @@ function tractVAN() {
     --opd \
     --os2t \
     --nsamples=5000
-           
+
     #hard segmentation
     find_the_biggest pallidum2cortex_left/seeds_to_* pallidum2cortex_left/biggest_segmentation
 
@@ -1267,7 +1267,7 @@ function tractVAN() {
     --forcedir \
     --opd \
     --nsamples=5000
-    
+
     echo "kmeans segmentation in Matlab"
     cd pallidum2cortex_right_omatrix2
     file_matlab=temp_Segmentation
@@ -1275,7 +1275,7 @@ function tractVAN() {
     matlab -nodisplay -r "${file_matlab}"
     fslcpgeom fdt_paths clusters
     cd ..
-    
+
     echo "" >> $log
     echo $(date) >> $log
     echo "Finished with segmentation" >> $log
@@ -1292,8 +1292,8 @@ function tractVAN() {
     echo "" >> $log
     echo $(date) >> $log
     echo "10. Starting connectomics with probtrackx2" >> $log
-    
-    
+
+
     if [ $(imtest ${template}) == 1 ];
     then
         echo "${template} dataset for connectomics ok"
@@ -1301,18 +1301,18 @@ function tractVAN() {
         template="${codedir}/templates/AAL90.nii.gz"
         echo "No parcellation template for connectomics has been supplied - using AAL90 cortical (78 nodes)"
     fi
-    
+
     maxParcel=`fslstats ${template} -R | awk '{print $2}'`
     numParcels=`printf "%0.0f\n" $maxParcel`
     echo "numParcels: ${numParcels}"
-    
+
     echo "Parcellation template is: ${template}" >> ${log}
     echo "numParcels: ${numParcels}" >> ${log}
     cp ${template} .
-    
+
     outname=`basename ${template} .nii.gz` #for parsing output to probtrackx below
     echo "outname is: ${outname}"
-    
+
     #generate list of seeds
     if [[ ! -d ${tempdir}/${outname}_seeds/ ]] ;
     then
@@ -1359,8 +1359,8 @@ function tractVAN() {
         else
             echo "Tractography scripts have been made already."
         fi
-        
-    
+
+
         seedFinished=`(ls ${tempdir}/probtrackx/${outname}/Seg*/matrix_seeds_to_all_targets 2>/dev/null | wc -l)`
 
 
@@ -1381,18 +1381,18 @@ function tractVAN() {
                     sleep 10
                 fi
             done
-            
+
             echo "Tractography jobs submitted to the cluster - *might* need to re-run script after they have finished (check with qstats or squeue) to merge tracts."
             echo "Check number of jobs finished (number of parcels=${numParcels})."
             echo "ls ${tempdir}/${outname}_connectome/Seg*/matrix_seeds_to_all_targets | wc -l"
-           
+
             #Significant pause: ~1min per parcel for tracing (depends on volume)
             sleep 10h
         else
             echo "Tractography scripts have finished running on cluster already."
         fi
-        
-        
+
+
         seedFinished=`(ls ${tempdir}/probtrackx/${outname}/Seg*/matrix_seeds_to_all_targets 2>/dev/null | wc -l)`
 
 
@@ -1411,10 +1411,10 @@ function tractVAN() {
 
                 echo "mergeTracts('${tempdir}/','${outname}');exit" > ${file_matlab}.m
                 matlab -nodisplay -r "${file_matlab}"
-                
+
                 mkdir -p ${tempdir}/probtrackx/${outname}/connectome
                 mv ${tempdir}/probtrackx/${outname}/connectivity* ${tempdir}/probtrackx/${outname}/connectome/
-                
+
                 echo "Connectome tractography complete without errors!"
             else
                 echo "Tractography seeds still running: ${seedFinished} != ${numParcels}. Merge tracts not run. Re-run after they have finish in: ${tempdir}/probtrackx/${outname}."
@@ -1422,12 +1422,12 @@ function tractVAN() {
         else
             echo "Connectome already computed: results in ${tempdir}/probtrackx/${outname}/connectome/"
         fi
- 
+
     else
         echo "Running probtrackx connectome in serial with --network option"
         echo "Starting connectome in serial with --network option" >> $log
         echo "" >> $log
-        
+
         #only 500 seeds and no option '-opd'
         probtrackx2 \
         --network \
@@ -1441,15 +1441,15 @@ function tractVAN() {
         --onewaycondition \
         --forcedir \
         --nsamples=500
-        
+
     fi
- 
-    
+
+
     echo "" >> $log
     echo $(date) >> $log
     echo "Finished with connectome" >> $log
     echo "" >> $log
-    
+
 }
 
 
