@@ -7,9 +7,10 @@ set -e
 # Michael Hart, St George's University of London, January 2022 (c)
 
 #sort path to QA Tools
-
+#need to set path
 export QA_TOOLS=${HOME}/Dropbox/Github/code/QAtools_v1.2
 export SUBJECTS_DIR=`pwd`
+echo "hello world"
 
 echo "QA Tools set up as ${QA_TOOLS}"
 echo "QA Tools set up as ${QA_TOOLS}" >> ${log}
@@ -25,5 +26,5 @@ recon-all -i ${structural} -s ${tempdir}/FS -all -parallel -openmp 6
 ${QA_TOOLS}/recon_checker -s ${tempdir}/FS
 
 #additional parcellation for connectomics
-#need to check template [ ] 
+#need to check template [ ]
 parcellation2individuals.sh

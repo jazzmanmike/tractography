@@ -415,6 +415,7 @@ function imageANALYSIS() {
 
     #make_freesurfer.sh
     #sort path to QA tools [ ]
+    #decide no skullstrip or add T2/FLAIR
 
 
     echo "" >> $log
