@@ -6,17 +6,28 @@ set -e
 #
 # Michael Hart, St George's University of London, January 2022 (c)
 
+#define
+codedir=${HOME}/Dropbox/Github/tractography
+basedir="$(pwd -P)"
+FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
+
+
+#inputs: structural ($1), nodif_brain (from diffusion.bedpostX/xfms)
+#outputs: brain, registrations, cortical thickness mask
+
+#Set Cores (8 max on laptop)
+ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=8
+
+
 #ANTS pipeline
 echo "starting ants"
 
-cp ${structural} ${tempdir}/structural.nii.gz
+ants_brains.sh -s $1 -o
 
-ants_brains.sh -s structural.nii.gz
+ants_diff2struct.sh -d ${basedir}/registrations/nodif_brain.nii.gz -s ${basedir}/ants_brains/BrainExtractionBrain.nii.gz -o
 
-ants_diff2struct.sh -d nodif_brain.nii.gz -s ants_brains/BrainExtractionBrain.nii.gz
+ants_struct2stand.sh -s ${basedir}/ants_brains/BrainExtractionBrain.nii.gz -o
 
-ants_struct2stand.sh -s ants_brains/BrainExtractionBrain.nii.gz
+ants_regcheck.sh -d ${basedir}/registrations/nodif_brain.nii.gz -w ${basedir}/ants_struct2stand/structural2standard.nii.gz -i ${basedir}/ants_struct2stand/standard2structural.nii.gz -r ${basedir}/ants_diff2struct/rigid0GenericAffine.mat -o
 
-ants_regcheck.sh -d nodif_brain.nii.gz -w ants_struct2stand/structural2standard.nii.gz -i ants_struct2stand/standard2structural.nii.gz -r ants_diff2struct/rigid0GenericAffine.mat
-
-ants_corthick.sh -s ${structural}
+ants_corthick.sh -s $1 -o

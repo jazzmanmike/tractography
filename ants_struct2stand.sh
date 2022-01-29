@@ -5,7 +5,7 @@ set -e
 
 #define directories
 
-codedir=${HOME}/code/github/tractography
+codedir=${HOME}/Dropbox/Github/tractography
 basedir="$(pwd -P)"
 
 #make usage function
@@ -90,7 +90,7 @@ fi
 
 #check usage
 
-if [[ -z $structural ]] 
+if [[ -z $structural ]]
 then
     echo "usage incorrect"
     usage
@@ -103,7 +103,7 @@ echo "options ok"
 
 echo "Checking structural data"
 
-structural=${basedir}/${structural}
+#structural=${basedir}/${structural}
 structural_name=`basename ${structural} .nii.gz`
 
 if [ $(imtest $structural) == 1 ];
@@ -147,16 +147,12 @@ else
 fi
 
 outdir="${basedir}/ants_struct2stand"
-
-#make temporary directory
-
-tempdir="$(mktemp -t -d temp.XXXXXXXX)"
-cd "${tempdir}"
+cd "${outdir}"
 
 #start logfile
 
-touch ants_struct2stand_logfile.txt
-log=ants_struct2stand_logfile.txt
+touch ${outdir}/ants_struct2stand_logfile.txt
+log=${outdir}/ants_struct2stand_logfile.txt
 
 echo $(date) >> ${log}
 echo "${@}" >> ${log}
@@ -218,11 +214,9 @@ function antsS2S() {
 
 antsS2S
 
-# perform cleanup
-cp -fpR . "${outdir}"
-cd "${outdir}"
-
 # complete log
+
+cd ${basedir}
 
 echo "all done with ants_struct2stand.sh" >> ${log}
 echo $(date) >> ${log}

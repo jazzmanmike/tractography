@@ -15,9 +15,10 @@ M = full(spconvert(x));
 
 % Calculate cross-correlation
 CC = 1+corrcoef(M');
+CC(isnan(CC)) = 0; %removes NAN's: catch for some matrices (need to query input data)
 
 % Do kmeans with k clusters
-k = 5; %set number of clusters
+k = 5; %set number of clusters - default 5
 idx = kmeans(CC,k);   % k is the number of clusters
 
 % Load coordinate information to save results

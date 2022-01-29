@@ -18,13 +18,14 @@ FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
 #echo "--nsamples=500 using -ptx_options ${codedir}/xtract_options.txt"
 
 #xtract -bpx diffusion.bedpostX -out myxtract -species HUMAN -ptx_options ${codedir}/xtract_options.txt
-xtract -bpx diffusion.bedpostX -out myxtract -species HUMAN -gpu
+#xtract -bpx bpx.bedpostX -out myxtract -species HUMAN -gpu
 
 #xtract_stats
-xtract_stats -d ${tempdir}/dti_ -xtract myxtract -w diffusion.bedpostX/xfms/standard2diff.nii.gz -r ${tempdir}/dti_FA.nii.gz -keepfiles
+#xtract_stats -d FDT/dti_ -xtract myxtract -w bpx.bedpostX/xfms/standard2diff.nii.gz -r FDT/dti_FA.nii.gz -keepfiles
 
 #xtract_viewer
 #xtract_viewer -dir myxtract -species HUMAN
 
 #DBS XTRACT
-xtract -bpx ${tempdir}/diffusion.bedpostX -out dbsxtract -str ${codedir}/dbsxtract/structureList -p ${codedir}/dbsxtract
+xtract -bpx bpx.bedpostX -out dbsxtract -species HUMAN -str ${codedir}/dbsxtract/structureList -p ${codedir}/dbsxtract
+#xtract -bpx bpx.bedpostX -out dbsxtract -species HUMAN -str ${codedir}/dbsxtract/structureList -p ${codedir}/dbsxtract -gpu

@@ -7,8 +7,7 @@ set -e
 # Michael Hart, University of Cambridge, 13 April 2016 (c)
 
 #define directories
-
-codedir=${HOME}/code/github/tractography
+codedir=${HOME}/Dropbox/Github/tractography
 basedir=$(pwd)
 
 #make usage function
@@ -125,7 +124,7 @@ fi
 
 echo "Checking functional and template data"
 
-structural=${basedir}/${structural}
+#structural=${basedir}/${structural}
 
 if [ $(imtest $structural) == 1 ];
 then
@@ -174,16 +173,15 @@ outdir=${basedir}/ants_brains
 
 #make temporary directory
 
-tempdir="$(mktemp -t -d temp.XXXXXXXX)"
+#tempdir="$(mktemp -t -d temp.XXXXXXXX)"
+#cd "${tempdir}"
+#mkdir ants_brains #duplicate
 
-cd "${tempdir}"
-
-mkdir ants_brains #duplicate
+#cd "${outdir}"
 
 #start logfile
-
-touch ants_brains/ants_brains_logfile.txt
-log=ants_brains/ants_brains_logfile.txt
+touch ${outdir}/ants_brains_logfile.txt
+log=${outdir}/ants_brains_logfile.txt
 
 echo $(date) >> ${log}
 echo "${0}" >> ${log}
@@ -220,10 +218,11 @@ slicer ants_brains/BrainExtractionBrain.nii.gz -a ants_brains/ants_brains_check.
 
 #cleanup
 
-cd ants_brains/
-cp -fpR . "${outdir}"
-cd ${outdir}
-rm -Rf ${tempdir} BrainExtractionMask.nii.gz BrainExtractionPrior0GenericAffine.mat
+#cd ${basedir}
+#cd ants_brains/
+#cp -fpR . "${outdir}"
+#cd ${outdir}
+#rm -Rf ${tempdir} BrainExtractionMask.nii.gz BrainExtractionPrior0GenericAffine.mat
 
 #close up
 

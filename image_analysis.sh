@@ -31,7 +31,7 @@ Can run with tract_QC.sh for post run quality control
 
 Example:
 
-image_analysis.sh --T1=mprage.nii.gz --data=diffusion.nii.gz --bvecs=bvecs.txt --bvals=bvals.txt
+image_analysis.sh --T1=mprage.nii.gz --data=diffusion.nii.gz --bvecs=bvecs.txt --bvals=bvals.txt --FLAIR=FLAIR.nii.gz
 
 Options:
 
@@ -42,19 +42,21 @@ Mandatory
 --bvals         bvals file
 
 Optional
+--FLAIR         FLAIR image
 --acqparams     acquisition parameters (custom values, for Eddy/TopUp, or leave acqparams.txt in basedir)
 --index         diffusion PE directions (custom values, for Eddy/TopUp, or leave index.txt in basedir)
 --segmentation  additional segmentation template (for segmentation: default is Yeo7)
 --parcellation  additional parcellation template (for connectomics: default is AAL90 cortical)
 --nsamples      number of samples for tractography (xtract, segmentation, connectome)
 -d              denoise: runs topup & eddy (see code for default acqparams/index parameters or enter custom as above)
+-b              (de)bug: only run analyses not performed yet
 -p              parallel processing (slurm)*
--o              overwrite
+-o              overwrite (re-do everything)
 -h              show this help
 -v              verbose
 
 Pipeline
-1.  Baseline quality control
+1.  Baseline image quality control
 2.  make_anatomy (fsl_anat, FIRST, bet)
 3.  make_freesurfer (recon-all, QA_checks, re-parcellation)
 4.  make_registration (fsl)
@@ -93,7 +95,7 @@ bvals=unset
 
 
 # Call getopt to validate the provided input
-options=$(getopt -n image_analysis.sh -o dpohv --long data:,T1:,bvecs:,bvals:,acqparams:,index:,segmentation:,parcellation:,nsamples: -- "$@")
+options=$(getopt -n image_analysis.sh -o dbpohv --long data:,T1:,bvecs:,bvals:,FLAIR:,acqparams:,index:,segmentation:,parcellation:,nsamples: -- "$@")
 echo "Options are: ${options}"
 
 # If empty options
@@ -114,20 +116,22 @@ eval set -- "$options"
 while :
 do
     case "$1" in
-    -p)             parallel=1      ;   shift   ;;
-    -d)             denoise=1       ;   shift   ;;
-    -o)             overwrite=1     ;   shift   ;;
-    -h)             usage           ;   exit 1  ;;
-    -v)             verbose=1       ;   shift   ;;
-    --data)         data="$2"       ;   shift 2 ;;
-    --T1)           T1="$2"         ;   shift 2 ;;
-    --bvecs)        bvecs="$2"      ;   shift 2 ;;
-    --bvals)        bvals="$2"      ;   shift 2 ;;
-    --acqparams)    acqp="$2"       ;   shift 2 ;;
-    --index)        index="$2"      ;   shift 2 ;;
-    --segmentation) atlas="$2"      ;   shift 2 ;;
-    --parcellation) template="$2"   ;   shift 2 ;;
-    --nsamples)     nsamples="$2"   ;   shift 2 ;;
+    -p)             parallel=1          ;   shift   ;;
+    -d)             denoise=1           ;   shift   ;;
+    -b)             debug=1             ;   shift   ;;
+    -o)             overwrite=1         ;   shift   ;;
+    -h)             usage               ;   exit 1  ;;
+    -v)             verbose=1           ;   shift   ;;
+    --data)         data="$2"           ;   shift 2 ;;
+    --T1)           T1="$2"             ;   shift 2 ;;
+    --bvecs)        bvecs="$2"          ;   shift 2 ;;
+    --bvals)        bvals="$2"          ;   shift 2 ;;
+    --FLAIR)        FLAIR="$2"          ;   shift 2 ;;
+    --acqparams)    acqp="$2"           ;   shift 2 ;;
+    --index)        index="$2"          ;   shift 2 ;;
+    --segmentation) segmentation="$2"   ;   shift 2 ;;
+    --parcellation) parcellation="$2"   ;   shift 2 ;;
+    --nsamples)     nsamples="$2"       ;   shift 2 ;;
     --) shift; break ;;
     esac
 done
@@ -188,6 +192,14 @@ else
     echo "verbose set off"
 fi
 
+if [ "${debug}" == 1 ] ;
+then
+    echo "debug set on"
+    set -x verbose
+else
+    echo "debug set off"
+fi
+
 echo "options ok"
 
 
@@ -240,46 +252,58 @@ echo "All mandatory files (data, structural, bvecs, bvals) are ok"
 
 #check optional image files
 
+FLAIR_test=${basedir}/${FLAIR}
+
+if [ $(imtest $FLAIR_test) == 1 ] ;
+then
+    echo "FLAIR data ok"
+else
+    echo "Cannot locate FLAIR file ${FLAIR_test}. Running FreeSurfer without FLAIR." >&2
+fi
+
 #segmentation atlas
 
-atlas_test=${basedir}/${atlas}
+segmentation_test=${basedir}/${segmentation}
 
-if [ $(imtest $atlas_test) == 1 ] ;
+if [ $(imtest $segmentation_test) == 1 ] ;
 then
-    echo "Using ${atlas_test} for segmentation: file is ok"
-    template=${atlas_test}
+    echo "Using ${segmentation_test} for segmentation: file is ok"
+    segmentation=${segmentation_test}
 else
-    echo "Cannot locate additional segmentation template file: ${atlas_test}. Please ensure the ${atlas_test} is in this directory. Will continue with Yeo7 segmentation template."
+    echo "Cannot locate additional segmentation template file: ${segmentation_test}. Please ensure the ${segmentation_test} is in this directory. Otherwise will continue with default DK (clustering), Yeo7, & kmeans segmentation."
 fi
 
 #parcellation template
 
-template_test=${basedir}/${template}
+parcellation_test=${basedir}/${parcellation}
 
-if [ $(imtest $template_test) == 1 ] ;
+if [ $(imtest $parcellation_test) == 1 ] ;
 then
-    echo "Using ${template_test} for parcellation: file is ok"
-    template=${template_test}
+    echo "Using ${parcellation_test} for parcellation: file is ok"
+    parcellation=${parcellation_test}
 else
-    echo "Cannot locate additional parcellation template file: ${template_test}. Please ensure the ${template_test} is in this directory. Will continue with AAL90 parcellation template."
+    echo "Cannot locate additional parcellation template file: ${parcellation_test}. Please ensure the ${parcellation_test} is in this directory. Otherwise will continue with default AAL90 parcellation template."
 fi
 
 
 #make directory structure
-
 if [ ! -d ${basedir}/diffusion ] ;
 then
     echo "making output directory"
     mkdir -p ${basedir}/diffusion
 else
     echo "output directory already exists"
-    if [ "$overwrite" == 1 ] ;
+    if [[ "${overwrite}" -eq 1 ]] ;
     then
-        echo "making new output directory"
+        echo "overwrite on: making new output directory"
+        rm -r ${basedir}/diffusion
         mkdir -p ${basedir}/diffusion
+    elif [[ "${debug}" -eq 1 ]] ;
+    then
+        echo "debug on: keeping directory"
     else
-        echo "no overwrite permission to make new output directory"
-    exit 1
+        echo "no overwrite permission (or debug) to replace existing output directory -> exiting now"
+        exit 1
     fi
 fi
 
@@ -296,15 +320,19 @@ echo "outdir is: ${outdir}"
 fslchfiletype NIFTI_GZ ${data_test} ${outdir}/data #make copies of inputs in diffusion folder
 data=${outdir}/data.nii.gz #this is now working data with standard prefix
 
-#same for remaining files
 fslchfiletype NIFTI_GZ ${T1_test} ${outdir}/structural
 structural=${outdir}/structural.nii.gz
+
+fslchfiletype NIFTI_GZ ${FLAIR_test} ${outdir}/FLAIR
+FLAIR=${outdir}/FLAIR.nii.gz
 
 cp $bvecs_test ${outdir}
 bvecs=${outdir}/${bvecs}
 cp $bvals_test ${outdir}
 bvals=${outdir}/${bvals}
 
+#work in outdir (${basedir}/diffusion)
+echo "working in ${outdir}"
 cd ${outdir}
 
 #Start logfile: if already exists (and therefore script previously run) stops here
@@ -314,13 +342,18 @@ then
     echo "making log file"
     touch image_analysis_log.txt
 else
-    echo "log file already exists - tract_van.sh has probably been run already"
-    if [ "$overwrite" == 1 ] ;
+    echo "log file already exists - image_analysis.sh has probably been run already"
+    if [[ "$overwrite" == 1 ]] ;
     then
+        echo "overwrite on: removing log file and making new one"
+        rm image_analysis_log.txt
         touch image_analysis_log.txt
+    elif [[ "$debug" == 1 ]] ;
+    then
+        echo "debug on: keeping log"
     else
         echo "no overwrite permission"
-    exit 1
+        exit 1
     fi
 fi
 
@@ -357,7 +390,6 @@ function imageANALYSIS() {
     echo "" >> $log
     echo $(date) >> $log
     echo "1. Base image quality control" >> $log
-    echo "" >> $log
 
 
     #run baseline checks
@@ -380,48 +412,71 @@ function imageANALYSIS() {
     echo "" >> $log
 
 
-    #####################
+    ####################
 
-    #2. Anatomy
+    #2. Advanced Anatomy
 
-    #####################
-
-
-    echo "" >> $log
-    echo $(date) >> $log
-    echo "2. Starting advanced anatomy" >> $log
-
-
-    #make_anatomy.sh
+    ####################
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with advanced anatomy" >> $log
+    echo "2. Starting make_anatomy" >> $log
+
+
+    if [ ! -d ${outdir}/structural.anat ] ;
+    then
+        echo "calling make_anatomy.sh"
+        make_anatomy.sh ${structural}
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "structural.anat exists and debug is on: not calling make_anatomy.sh again"
+        else
+            echo "structural.anat exists and debug is off: repeating & overwriting make_anatomy.sh"
+            make_anatomy.sh ${structural}
+        fi
+    fi
+
+
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "Finished with make_anatomy" >> $log
     echo "" >> $log
 
 
     ###############
 
-    #3. Freesurfer
+    #3. FreeSurfer
 
     ###############
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "3. Starting Freesurfer" >> $log
+    echo "3. Starting make_freesurfer" >> $log
 
 
-    #make_freesurfer.sh
-    #sort path to QA tools [ ]
-    #decide no skullstrip or add T2/FLAIR
+    if [ ! -d ${outdir}/FS ] ;
+    then
+        echo "calling make_freesurfer.sh"
+        make_freesurfer.sh ${structural} ${FLAIR}
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "FS exists and debug is on: not calling make_freesurfer.sh again"
+        else
+            echo "FS exists and debug is off: calling make_freesurfer.sh again"
+            make_freesurfer.sh ${structural} ${FLAIR}
+        fi
+    fi
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with Freesurfer" >> $log
+    echo "Finished with make_freesurfer" >> $log
     echo "" >> $log
+
 
     #################
 
@@ -432,28 +487,77 @@ function imageANALYSIS() {
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "4. Starting registration" >> $log
+    echo "4. Starting make_registration" >> $log
+
+    head=${outdir}/structural.anat/T1_biascorr.nii.gz
+    brain=${outdir}/structural.anat/T1_biascorr_brain.nii.gz
+
+    echo "head is: ${head}"
+    echo "brain is: ${brain}"
+
+    if [ ! -d ${outdir}/registrations ] ;
+    then
+        echo "calling make_registrations.sh"
+        make_registrations.sh ${brain} ${head} ${data}
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "registrations exists and debug is on: not calling make_registrations.sh again"
+        else
+            echo "registrations exists and debug is off: repeating & overwriting make_registrations.sh"
+            make_registrations.sh ${brain} ${head} ${data}
+        fi
+    fi
+
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "Finished with make_registration" >> $log
+    echo "" >> $log
 
 
-    #make_registration.sh
-    #make_ants.sh
+    #########
+
+    #5. ANTS
+
+    #########
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with registration" >> $log
-    echo "" >> $log
+    echo "5. Starting make_ants" >> $log
 
-    #####################
 
-    #5. Advanced de-noising
-
-    #####################
+    if [ ! -d ${outdir}/ACT ] ;
+    then
+        echo "calling make_ants.sh"
+        make_ants.sh ${structural}
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "ANTS has been run and debug is on: not calling make_ants.sh again"
+        else
+            echo "ANTS has been run and debug is off: repeating & overwriting make_ants.sh"
+            make_ants.sh ${structural}
+        fi
+    fi
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "5. Starting advanced de-noising" >> $log
+    echo "Finished with make_ants" >> $log
+    echo "" >> $log
+
+
+    #######################
+
+    #6. Advanced de-noising
+
+    #######################
+
+
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "6. Starting make_diffusiondenoise" >> $log
 
 
     #make_diffusiondenoise.sh
@@ -461,112 +565,148 @@ function imageANALYSIS() {
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with advanced de-noising" >> $log
+    echo "Finished with make_diffusiondenoise" >> $log
     echo "" >> $log
 
 
-    #################
+    ########
 
-    #6. FDT Pipeline
+    #7. FDT
 
-    #################
-
-
-    echo "" >> $log
-    echo $(date) >> $log
-    echo "6. FDT pipeline" >> $log
-
-
-    #make_FDT.sh
+    ########
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with FDT pipeline" >> $log
+    echo "7. Starting make_FDT" >> $log
+
+    mask=${basedir}/diffusion/registrations/nodif_brain_mask.nii.gz
+
+    if [ ! -d ${outdir}/FDT ] ;
+    then
+        echo "calling make_FDT.sh"
+        make_FDT.sh ${data} ${mask} ${bvecs} ${bvals}
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "FDT exists and debug is on: not calling make_FDT.sh again"
+        else
+            echo "FDT exists and debug is off: repeating & overwriting make_FDT.sh"
+            make_FDT.sh ${data} ${mask} ${bvecs} ${bvals}
+        fi
+    fi
+
+
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "Finished with make_FDT" >> $log
     echo "" >> $log
 
 
     #############
 
-    #7. BedPostX
+    #8. BedPostX
 
     #############
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "7. Starting BedPostX" >> $log
-    echo "" >> $log
+    echo "8. Starting make_bedpostx" >> $log
 
 
-    #make_bedpostx
+    if [ ! -d ${outdir}/bpx.bedpostX ] ;
+    then
+        echo "calling make_bedpostx.sh"
+        make_bedpostx.sh ${data} ${bvecs} ${bvals} registrations/nodif_brain_mask.nii.gz
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "bpx.bedpostX exists and debug is on: not calling make_bedspotx.sh again"
+        else
+            echo "bpx.bedpostX exists and debug is off: repeating & overwriting make_bedpostx.sh"
+            make_bedpostx.sh ${data} ${bvecs} ${bvals} registrations/nodif_brain_mask.nii.gz
+          fi
+    fi
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with BedPostX" >> $log
+    echo "Finished with make_bedpostx" >> $log
     echo "" >> $log
 
 
     ##########
 
-    #8. XTRACT
+    #9. XTRACT
 
     ##########
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "8. Starting XTRACT" >> $log
+    echo "9. Starting make_xtract" >> $log
 
 
-    #make_xtract.sh
-
-
-    echo "" >> $log
-    echo $(date) >> $log
-    echo "Finished with XTRACT" >> $log
-    echo "" >> $log
-
-
-    ################
-
-    #9. Segmentation
-
-    ################
-
-    echo "" >> $log
-    echo $(date) >> $log
-    echo "9. Starting Segmentation with ProbTrackX" >> $log
-
-
-    #make_segmentation.sh
+    if [ ! -d ${outdir}/dbsxtract ] ;
+    then
+        echo "calling make_xtract.sh"
+        make_xtract.sh
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "dbsxtract exists and debug is on: not calling make_xtract.sh again"
+        else
+            echo "dbsxtract exists and debug is off: repeating & overwriting make_xtract.sh"
+            make_xtract.sh
+          fi
+    fi
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with segmentation" >> $log
+    echo "Finished with make_xtract" >> $log
     echo "" >> $log
 
 
     #################
 
-    #10. Connectomics
+    #10. Segmentation
+
+    #################
+
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "10. Starting make_segmentation" >> $log
+
+
+    make_segmentation.sh ${segmentation}
+
+
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "Finished with make_segmentation" >> $log
+    echo "" >> $log
+
+
+    #################
+
+    #11. Connectomics
 
     #################
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "10. Starting connectomics with probtrackx2" >> $log
+    echo "11. Starting make_connectome" >> $log
 
 
-    #make_connectome.sh
+    make_connectome.sh
 
 
     echo "" >> $log
     echo $(date) >> $log
-    echo "Finished with connectome" >> $log
+    echo "Finished with make_connectome" >> $log
     echo "" >> $log
 
 }
@@ -592,12 +732,12 @@ echo $(date) >> $log
 echo "Clean up time" >> $log
 echo "" >> $log
 
-rm slurm*
-rm diffusion.bedpostX/command_files/*
-rm diffusion.bedpostX/logs/*
-rm -r probtrackx/*/Seg*
-rm -r probtrackx/*/commands
-rm -r *seeds
+
+#rm diffusion.bedpostX/command_files/*
+#rm diffusion.bedpostX/logs/*
+#rm -r probtrackx/*/Seg*
+#rm -r probtrackx/*/commands
+#rm -r *seeds
 
 
 echo "" >> $log

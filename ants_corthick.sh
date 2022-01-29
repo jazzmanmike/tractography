@@ -4,7 +4,7 @@
 
 #define directories
 
-codedir=${HOME}/bin
+codedir=${HOME}/Dropbox/Github/tractography
 basedir="$(pwd -P)"
 
 #make usage function
@@ -104,21 +104,20 @@ echo "options ok"
 # final check of files
 
 echo "Checking structural data"
+#structural=${basedir}/${structural}
 
 if [ $(imtest "${structural}") == 1 ];
 then
     echo "Structural dataset ok"
-    structural=${basedir}/${structural}
 else
     echo "Cannot locate file $structural. Please ensure the $structural dataset is in this directory"
     exit 1
 fi
 
-
 if [ "${template}" = "" ];
 then
     echo "No template supplied - using MNI"
-    template="${HOME}/ANTS/ANTS_templates/MNI"
+    template=${HOME}/Dropbox/Github/tractography/ANTS_templates/
 else
     echo "${template} dataset ok"
     template=${basedir}/${template}
@@ -126,34 +125,26 @@ fi
 
 #make output directory
 
-if [ ! -d ${basedir}/ACT ];
+if [ ! -d ${basedir}/ants_corthick ];
 then
     echo "making output directory"
-    mkdir ${basedir}/ACT
+    mkdir ${basedir}/ants_corthick
 else
     echo "output directory already exists"
     if [ "$overwrite" == 1 ]
     then
         echo "overwriting output directory"
-        mkdir -p ${basedir}/ACT
+        mkdir -p ${basedir}/ants_corthick
     else
         echo "no overwrite permission to make new output directory"
         exit 1
     fi
 fi
 
-outdir=${basedir}/ACT
-
-#make temporary directory
-
-tempdir="$(mktemp -t -d temp.XXXXXXXX)"
-
-cd "${tempdir}"
-
-mkdir ACT #duplicate
+outdir=${basedir}/ants_corthick
+#cd "${outdir}"
 
 #start logfile
-
 touch ${outdir}/ants_corthick_logfile.txt
 log=${outdir}/ants_corthick_logfile.txt
 
@@ -177,11 +168,11 @@ function antsCT() {
     antsCorticalThickness.sh \
     -d 3 \
     -a $structural \
-    -e ${template}/head.nii.gz \
-    -m ${template}/brain_mask.nii.gz \
+    -e ${template}/MNI152_T1_2mm.nii.gz \
+    -m ${template}/MNI152_T1_2mm_brain_mask.nii.gz \
     -p ${template}/Priors/prior%d.nii.gz \
-    -t ${template}/brain.nii.gz \
-    -o ACT/
+    -t ${template}/MNI152_T1_2mm_brain.nii.gz \
+    -o ants_corthick/
 
 }
 
@@ -189,16 +180,8 @@ function antsCT() {
 
 antsCT
 
-#cleanup
-
-cd ACT
-cp -fpR . "${outdir}"
-cd "${outdir}"
-rm -Rf "${tempdir}"
-
 #close up
+#cd ${basedir}
 
 echo "all done with ants_corthick.sh" >> ${log}
 echo $(date) >> ${log}
-
-

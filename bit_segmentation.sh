@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #  bit_segmentation.sh
-#  
+#
 #  Quick script for running segmentation analyses separate from tract_van.sh
 #  Atlases include:
 #   Desikan-Killiany (individual segmentation, from FreeSurfer): cluster based segmentation, thalamus only
@@ -80,7 +80,7 @@ else
     echo "making DK_volume_MNI_seq"
     echo "making DK_volume_MNI_seq" >> ${log}
     echo $(date) >> ${log}
-    
+
     #Set up DK: work in 'diffusion' directory
     SUBJECTS_DIR=`pwd`
     mri_aparc2aseg --s FS --annot aparc
@@ -139,7 +139,7 @@ echo "${codedir}/templates/dentate_right.nii.gz" >> ${outname}_seeds/seeds_targe
 
 cd ../
 
-    
+
 #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
 applywarp --in=${tempdir}/first_segmentation/first-R_Thal_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/thalamus_right_MNI.nii.gz
 
@@ -164,7 +164,7 @@ then
 else
     echo "Running DK cluster segmentation on right"
     echo "Running DK cluster segmentation on right" >> ${log}
-    
+
     #Seed to target
     touch ${tempdir}/batch_thalamus2cortex_right_cluster.sh
     echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_right_cluster.sh
@@ -184,7 +184,7 @@ else
     --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_right_cluster.sh
     chmod 777 ${tempdir}/batch_thalamus2cortex_right_cluster.sh
     sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_right_cluster.sh
-    
+
 fi
 
 
@@ -198,7 +198,7 @@ then
 else
     echo "Running DK cluster segmentation on left"
     echo "Running DK cluster segmentation on left" >> ${log}
-    
+
     #Seed to target
     touch ${tempdir}/batch_thalamus2cortex_left_cluster.sh
     echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_left_cluster.sh
@@ -274,7 +274,7 @@ else
     echo "Running hard segmentation of right thalamus with: ${outname}" >> ${log}
 
     #Seed to target
-    
+
     touch ${tempdir}/batch_thalamus2cortex_right.sh
     echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_right.sh
     echo "probtrackx2 --samples=${tempdir}/diffusion.bedpostX/merged \
@@ -293,7 +293,7 @@ else
     --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_right.sh
     chmod 777 ${tempdir}/batch_thalamus2cortex_right.sh
     sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_right.sh
-    
+
     #Run find_the_biggest later
 
 fi
@@ -329,7 +329,7 @@ else
     --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_left.sh
     chmod 777 ${tempdir}/batch_thalamus2cortex_left.sh
     sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_left.sh
-           
+
     #Run find_the_biggest later
 
 fi
@@ -348,7 +348,7 @@ else
 
     echo "Running hard segmentation right pallidum with: ${outname}"
     echo "Running hard segmentation right pallidum with: ${outname}" >> ${log}
-   
+
     #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
     applywarp --in=${tempdir}/first_segmentation/first-R_Pall_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/pallidum_right_MNI.nii.gz
 
@@ -375,7 +375,7 @@ else
     sbatch --time=3:00:00 ${tempdir}/batch_pallidum2cortex_right.sh
 
     #run find_the_biggest at end
-    
+
 fi
 
 
@@ -389,7 +389,7 @@ else
 
     echo "Running hard segmentation left pallidum with: ${outname}"
     echo "Running hard segmentation left pallidum with: ${outname}" >> ${log}
-   
+
     #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
     applywarp --in=${tempdir}/first_segmentation/first-L_Pall_first.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=${tempdir}/diffusion.bedpostX/xfms/str2standard_warp --out=${tempdir}/segmentation/pallidum_left_MNI.nii.gz
 
@@ -465,7 +465,7 @@ else
     echo "Running kmeans segmentation of right thalamus with: ${outname}" >> ${log}
 
     #omatrix2
-    
+
     touch ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
     echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
     echo "probtrackx2 --omatrix2 \
@@ -483,7 +483,7 @@ else
     --nsamples=5000" >> ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
     chmod 777 ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
     sbatch --time=3:00:00 ${tempdir}/batch_thalamus2cortex_right_omatrix2.sh
-    
+
 fi
 
 
@@ -496,7 +496,7 @@ then
 else
     echo "Running kmeans segmentation of left thalamus with: ${outname}"
     echo "Running kmeans segmentation of left thalamus with: ${outname}" >> ${log}
-    
+
     #omatrix2
     touch ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
     echo "#!/bin/bash" >> ${tempdir}/batch_thalamus2cortex_left_omatrix2.sh
@@ -528,7 +528,7 @@ then
 else
     echo "Running kmeans segmentation of right pallidum with: ${outname}"
     echo "Running kmeans segmentation of right pallidum with: ${outname}" >> ${log}
-   
+
     #Alternative segmentation method (hypothesis free): requires subsequent Matlab run for kmeans segmentation
 
     #omatrix2
@@ -561,7 +561,7 @@ then
 else
     echo "Running kmeans segmentation of left pallidum with: ${outname}"
     echo "Running kmeans segmentation of left pallidum with: ${outname}" >> ${log}
-   
+
     #omatrix2
     touch ${tempdir}/batch_pallidum2cortex_left_omatrix2.sh
     echo "#!/bin/bash" >> ${tempdir}/batch_pallidum2cortex_left_omatrix2.sh

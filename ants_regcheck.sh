@@ -8,7 +8,7 @@ set -e
 
 #define directories
 
-codedir=${HOME}/code/github/tractography
+codedir=${HOME}/Dropbox/Github/tractography
 basedir="$(pwd -P)"
 
 #make usage function
@@ -90,7 +90,7 @@ do
 	;;
     v)
 	verbose=1
-	;;	
+	;;
     ?)
         usage
         exit
@@ -120,7 +120,7 @@ echo "options ok"
 
 echo "Checking diffusion and structural data"
 
-diffusion=${basedir}/${diffusion}
+#diffusion=${basedir}/${diffusion}
 
 if [ $(imtest $diffusion) == 1 ];
 then
@@ -131,7 +131,7 @@ else
 fi
 
 
-warp=${basedir}/${warp}
+#warp=${basedir}/${warp}
 
 if [ $(imtest $warp) == 1 ];
 then
@@ -142,7 +142,7 @@ else
 fi
 
 
-inverse=${basedir}/${inverse}
+#inverse=${basedir}/${inverse}
 
 if [ $(imtest $inverse) == 1 ];
 then
@@ -153,7 +153,7 @@ else
 fi
 
 
-rigid=${basedir}/${rigid}
+#rigid=${basedir}/${rigid}
 
 if [ -f $rigid ];
 then
@@ -194,17 +194,12 @@ else
 fi
 
 outdir=${basedir}/ants_reg
-
-#make temporary directory
-
-tempdir="$(mktemp -t -d temp.XXXXXXXX)"
-
-cd "${tempdir}"
+cd "${outdir}"
 
 #start logfile
 
-touch ants_reg_logfile.txt
-log=ants_reg_logfile.txt
+touch ${outdir}/ants_reg_logfile.txt
+log=${outdir}/ants_reg_logfile.txt
 
 echo $(date) >> ${log}
 echo "${@}" >> ${log}
@@ -218,7 +213,7 @@ echo "${@}" >> ${log}
 function ARC(){
 
     #1. concatentate transforms
-    
+
     #diffusion to standard
     antsApplyTransforms \
     -d 3 \
@@ -226,7 +221,7 @@ function ARC(){
     -t ${rigid} \
     -o [diff2standard.nii.gz, 1] \
     -r ${template}
-    
+
     #standard to diffusion: ?outout inverse too
     antsApplyTransforms \
     -d 3 \
@@ -245,9 +240,9 @@ function ARC(){
     -t diff2standard.nii.gz \
     -r ${template} \
     -i ${diffusion}
-    
+
     #3. generate summary images
-    
+
     slicer ${template} diffusion_MNI.nii.gz -a diff2standard.ppm
 
 }
@@ -258,9 +253,8 @@ function ARC(){
 ARC
 
 #cleanup
-cp -fpR . "${outdir}"
-cd "${outdir}"
-rm -Rf "${tempdir}" MNI_replicated.nii.gz diff4DCollapsedWarp.nii.gz
+rm -Rf MNI_replicated.nii.gz diff4DCollapsedWarp.nii.gz
+cd ${basedir}
 
 #close up
 echo "all done" >> ${log}

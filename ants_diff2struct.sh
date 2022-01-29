@@ -7,8 +7,7 @@ set -e
 # Michael Hart, University of Cambridge, 13 April 2016 (c)
 
 #define directories
-
-codedir=${HOME}/code/github/tractography
+codedir=${HOME}/Dropbox/Github/tractography
 basedir=$(pwd)
 
 #make usage function
@@ -106,7 +105,7 @@ echo "options ok"
 
 echo "Checking diffusion and structural data"
 
-diffusion=${basedir}/${diffusion}
+#diffusion=${basedir}/${diffusion}
 
 if [ $(imtest $diffusion) == 1 ];
 then
@@ -116,7 +115,7 @@ else
     exit 1
 fi
 
-structural=${basedir}/${structural}
+#structural=${basedir}/${structural}
 
 if [ $(imtest $structural) == 1 ];
 then
@@ -147,17 +146,12 @@ else
 fi
 
 outdir=${basedir}/ants_diff2struct
-
-#make temporary directory
-
-tempdir="$(mktemp -t -d temp.XXXXXXXX)"
-
-cd "${tempdir}"
+cd "${outdir}"
 
 #start logfile
 
-touch diff2struct_logfile.txt
-log=diff2struct_logfile.txt
+touch ${outdir}/diff2struct_logfile.txt
+log=${outdir}/diff2struct_logfile.txt
 
 echo $(date) >> ${log}
 echo "${0}" >> ${log}
@@ -179,7 +173,7 @@ function antsD2S() {
     -f ${structural} \
     -m ${diffusion} \
     -t r
-	
+
     #2. warp image
 
     antsApplyTransforms \
@@ -205,12 +199,12 @@ slicer ${structural} diff2struct.nii.gz -a ants_diff2struct_check.ppm
 
 #perform cleanup
 
-cp -fpR . "${outdir}"
-cd $outdir
-rm -Rf "${tempdir}" epi_avg.nii.gz affineWarped.nii.gz affineInverseWarped.nii.gz
+#cp -fpR . "${outdir}"
+#cd $outdir
+rm -Rf epi_avg.nii.gz affineWarped.nii.gz affineInverseWarped.nii.gz
+cd ${basedir}
 
 #complete log
 
 echo "all done with ants_diff2struct.sh" >> ${log}
 echo $(date) >> ${log}
-

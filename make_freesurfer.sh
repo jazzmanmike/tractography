@@ -6,25 +6,23 @@ set -e
 #
 # Michael Hart, St George's University of London, January 2022 (c)
 
-#sort path to QA Tools
-#need to set path
-export QA_TOOLS=${HOME}/Dropbox/Github/code/QAtools_v1.2
-export SUBJECTS_DIR=`pwd`
-echo "hello world"
+#input: T1_biascorr (not brain extracted); FLAIR
+#output: FS, QA, additional (500mm sequential symmetrical) parcellation (for MSN)
 
-echo "QA Tools set up as ${QA_TOOLS}"
-echo "QA Tools set up as ${QA_TOOLS}" >> ${log}
+#need to set path
+export SUBJECTS_DIR=`pwd`
+
 echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}"
-echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}" >> ${log}
+#echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}" >> ${log}
 
 #run Freesurfer
-#in parallel with 6 cores
-recon-all -i ${structural} -s ${tempdir}/FS -all -parallel -openmp 6
+#in parallel with 8 cores
+recon-all -i $1 -s FS -all -FLAIR $2 -FLAIRpial -parallel -openmp 8
 
 #run QA tools
-#NB: images don't always run with Linux/SLURM
-${QA_TOOLS}/recon_checker -s ${tempdir}/FS
+qatools.py --subjects_dir=`pwd` --subjects=FS --output_dir=QA --screenshots --outlier
 
 #additional parcellation for connectomics
-#need to check template [ ]
-parcellation2individuals.sh
+#template: ${HOME}/Dropbox/Github/fslaverageSubP
+#500.sym.aparc_seq
+parcellation2individuals_sym.sh
