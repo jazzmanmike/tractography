@@ -18,7 +18,7 @@ if [ $(imtest ${template}) == 1 ];
 then
     echo "${template} dataset for connectomics ok"
 else
-    template="${codedir}/templates/AAL90.nii.gz"
+    template=${codedir}/templates/AAL90.nii.gz
     echo "No parcellation template for connectomics has been supplied - using AAL90 cortical (78 nodes)"
 fi
 
@@ -60,3 +60,7 @@ probtrackx2 \
 --onewaycondition \
 --forcedir \
 --nsamples=500
+
+#cleanup
+rm ${outname}.nii.gz
+rm ${outname}_seeds/Seg*

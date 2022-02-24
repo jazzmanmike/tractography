@@ -17,7 +17,7 @@ FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
 
 #fsl_anat
 echo "running fsl_anat"
-fsl_anat -i $1 -o structural --clobber --nosubcortseg
+fsl_anat -i $1 -o structural --clobber 
 slicer structural.anat/T1_biascorr_brain.nii.gz -a QC/fsl_anat_bet.ppm
 
 
@@ -33,7 +33,7 @@ cd first_segmentation
 cp ../structural.anat/T1_biascorr_brain.nii.gz .
 structural_name=`basename T1_biascorr_brain.nii.gz .nii.gz`
 
-run_first_all -i ${structural_name} -o first -d
+run_first_all -i ${structural_name} -o first -d -b
 first_roi_slicesdir $1 first-*nii.gz
 cd ../
 

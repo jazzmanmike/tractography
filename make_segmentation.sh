@@ -273,11 +273,11 @@ fi
 if [ "$default" == 1 ] ;
 then
 
-    atlas="${codedir}/templates/Yeo7.nii.gz"
+    atlas=${codedir}/templates/Yeo7.nii.gz
 
     #Mask atlas by hemisphere (faster & avoids conflict with connectome)
     cd segmentation
-    cp ${atlas}
+    cp ${atlas} .
     outname=`basename ${atlas} .nii.gz` #for parsing outputs
     fslmaths ${atlas} -mas ${codedir}/templates/right_brain.nii.gz ${outname}_right
     fslmaths ${atlas} -mas ${codedir}/templates/left_brain.nii.gz ${outname}_left
@@ -528,3 +528,14 @@ echo "segmentation_clustering;exit" > ${file_matlab}.m
 matlab -nodisplay -r "${file_matlab}"
 fslcpgeom fdt_paths clusters
 cd ..
+
+
+#cleanup
+mv dkn_volume* segmentation/
+rm temp_DK_renumDesikan.m
+rm thalamus2cortex_left/seeds*
+rm thalamus2cortex_left_cluster/seeds*
+rm thalamus2cortex_right/seeds*
+rm thalamus2cortex_right_cluster/seeds*
+rm pallidum2cortex_left/seeds*
+rm pallidum2cortex_right/seeds*

@@ -258,7 +258,7 @@ if [ $(imtest $FLAIR_test) == 1 ] ;
 then
     echo "FLAIR data ok"
 else
-    echo "Cannot locate FLAIR file ${FLAIR_test}. Running FreeSurfer without FLAIR." >&2
+    echo "Cannot locate FLAIR file ${FLAIR_test}. Running FreeSurfer without FLAIR."
 fi
 
 #segmentation atlas
@@ -527,7 +527,7 @@ function imageANALYSIS() {
     echo "5. Starting make_ants" >> $log
 
 
-    if [ ! -d ${outdir}/ACT ] ;
+    if [ ! -d ${outdir}/ants_corthick  ] ;
     then
         echo "calling make_ants.sh"
         make_ants.sh ${structural}
@@ -680,7 +680,19 @@ function imageANALYSIS() {
     echo "10. Starting make_segmentation" >> $log
 
 
-    make_segmentation.sh ${segmentation}
+    if [ ! -d ${outdir}/segmentation ] ;
+    then
+        echo "calling make_segmentation.sh"
+        make_segmentation.sh ${segmentation}
+    else
+        if [[ "${debug}" -eq 1 ]] ;
+        then
+            echo "segmentation exists and debug is on: not calling make_segmentation.sh again"
+        else
+            echo "segmentation exists and debug is off: repeating & overwriting make_segmentation.sh"
+            make_segmentation.sh ${segmentation}
+          fi
+    fi
 
 
     echo "" >> $log
@@ -701,13 +713,47 @@ function imageANALYSIS() {
     echo "11. Starting make_connectome" >> $log
 
 
-    make_connectome.sh
+    make_connectome.sh ${template}
+
+    template=${codedir}/templates/500.sym_4mm.nii.gz #change this
+    make_connectome.sh ${template}
+
+    template=${outdir}/segmentation/dkn_volume_MNI_seq.nii.gz
+    make_connectome.sh ${template}
 
 
     echo "" >> $log
     echo $(date) >> $log
     echo "Finished with make_connectome" >> $log
     echo "" >> $log
+
+    #####################
+
+    #12. Network analysis
+
+    #####################
+
+
+    #runs from standard path
+
+    #MSN - need to optimise
+    #tractography connectome (x3) - need to check images ok - just run in terminal
+
+
+    #######################
+
+    #13. Electrode analysis
+
+    #######################
+
+    #runs from standard path
+
+    #matlab -nodisplay -nosplash -nodesktop -r "run('home/michaelhart/Dropbox/Github/tractography/lead_job');exit;"
+
+    #matlab -nodisplay -nosplash -nodesktop -r "run('home/michaelhart/Dropbox/Github/tractography/electrode_autoreconstruction');exit;"
+
+    #call for PaCER, DiODE, FastField (x4 contacts per electrode with x3 voltages)
+
 
 }
 
@@ -743,7 +789,6 @@ echo "" >> $log
 echo "" >> $log
 echo $(date) >> $log
 echo "Clean up complete" >> $log
-echo "" >> $log
 
 #close up
 

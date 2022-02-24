@@ -17,7 +17,13 @@ echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}"
 
 #run Freesurfer
 #in parallel with 8 cores
-recon-all -i $1 -s FS -all -FLAIR $2 -FLAIRpial -parallel -openmp 8
+
+if [ $(imtest $2) == 1 ] ;
+then
+  recon-all -i $1 -s FS -all -FLAIR $2 -FLAIRpial -parallel -openmp 8
+else
+  recon-all -i $1 -s FS -all -parallel -openmp 8
+fi
 
 #run QA tools
 qatools.py --subjects_dir=`pwd` --subjects=FS --output_dir=QA --screenshots --outlier
