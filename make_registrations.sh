@@ -12,8 +12,8 @@ basedir="$(pwd -P)"
 FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
 
 
-#Main input is T1_biascorr_brain.nii.gz from fsl_anat; also includes data.nii.gz
-#NB: all inputs are pre-specified
+#Main input is T1_biascorr_brain.nii.gz from fsl_anat; also includes diffusion.nii.gz
+#NB: all inputs are pre-specified - goes brain / head / diffusion
 #Final outputs need to be diff2standard.nii.gz & standard2diff.nii.gz for probtrackx2/xtract
 #1. Registrations
 #a. flirt
@@ -22,12 +22,14 @@ FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
 #2. Check images
 #3. Cost functions
 
-echo "head is $1"
-echo "brain is $2"
+echo "brain is $1"
+echo "head is $2"
 echo "diffusion is $3"
 
 #make directory for outputs
 mkdir -pv registrations
+
+#Difffusion
 
 #make nodif_brain
 #extract B0 volume
@@ -80,9 +82,9 @@ convert_xfm -omat registrations/epi2standard.mat -concat registrations/str2stand
 echo "starting standard2epi.mat"
 convert_xfm -omat registrations/standard2epi.mat -inverse registrations/epi2standard.mat
 
-#structural to standard: non-linear
+#structural to standard: non-linear: uses brain image with head available in directory minus _brain suffix
 echo "starting fnirt"
-fnirt --in=$2 --aff=registrations/str2standard.mat --cout=registrations/str2standard_warp --config=T1_2_MNI152_2mm
+fnirt --in=$2 --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz --aff=registrations/str2standard.mat --cout=registrations/str2standard_warp --config=T1_2_MNI152_2mm
 
 #standard to structural: non-linear
 echo "starting inv_warp"
@@ -143,7 +145,7 @@ slicer ${FSLDIR}/data/standard/MNI152_T1_2mm_brain registrations/reg_check/epi2s
 #Check cost functions
 touch registration_costs.txt
 echo "Cost function of diff2str" > registration_costs.txt
-flirt -in registrations/nodif_brain.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz -schedule $FSLDIR/etc/flirtsch/measurecost1.sch -init registrations/diff2str.mat > registration_costs.txt
+flirt -in registrations/nodif_brain.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz -schedule $FSLDIR/etc/flirtsch/measurecost1.sch -init registrations/diff2str.mat > registrations/registration_costs.txt
 
 echo "Cost function of epi2str" > registration_costs.txt
-flirt -in registrations/nodif_brain.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz -schedule $FSLDIR/etc/flirtsch/measurecost1.sch -init registrations/epi2str.mat > registration_costs.txt
+flirt -in registrations/nodif_brain.nii.gz -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz -schedule $FSLDIR/etc/flirtsch/measurecost1.sch -init registrations/epi2str.mat > registrations/registration_costs.txt

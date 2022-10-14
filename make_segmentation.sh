@@ -32,6 +32,9 @@ then
 
     mkdir -pv segmentation
 
+    #Dependency for FreeSurfer
+    cp -r ../structural/first_segmentation .
+
     #Move individual nucleus (seed) to be segmentated to standard space (i.e. same as target parcellation / atlas)
     applywarp --in=first_segmentation/first-R_Thal_corr.nii.gz --ref=${FSLDIR}/data/standard/MNI152_T1_2mm_brain --warp=bpx.bedpostX/xfms/str2standard_warp --out=segmentation/thalamus_right_MNI.nii.gz
     fslmaths segmentation/thalamus_right_MNI.nii.gz -bin segmentation/thalamus_right_MNI.nii.gz
@@ -183,6 +186,9 @@ then
 
     else
         echo "making DK_volume_MNI_seq"
+
+        #Dependency for FreeSurfer
+        cp -r ../structural/FS .
 
         #Set up DK: work in 'diffusion' directory
         SUBJECTS_DIR=`pwd`
@@ -376,12 +382,12 @@ fi
 if [ "$default" == 1 ] ;
 then
 
+    #dependency for ANTS in image_analysis_structural.sh
     #Make grey matter mask in MNI space
     #Use ANTS preferentially
-    fslmaths ${basedir}/ants_corthick/CorticalThicknessNormalizedToTemplate.nii.gz -bin ${basedir}/segmentation/GM_mask_MNI.nii.gz
+    fslmaths ../structural/ants_corthick/CorticalThicknessNormalizedToTemplate.nii.gz -bin segmentation/GM_mask_MNI.nii.gz
 
     #Right thalamus: kmeans
-
     probtrackx2 --omatrix2 \
     --samples=bpx.bedpostX/merged \
     --mask=bpx.bedpostX/nodif_brain_mask \

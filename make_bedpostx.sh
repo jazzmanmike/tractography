@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-# make_bedpostx.sh
+# make_bedpostx.sh data bvecs bvals mask
 #
 #
 # Michael Hart, St George's University of London, January 2022 (c)
 
 #define
 
-codedir=${HOME}/Dropbox/Github/tractography
+codedir="${HOME}"/Dropbox/Github/tractography
 basedir="$(pwd -P)"
 FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
 
@@ -23,12 +23,11 @@ cp ${4} bpx/nodif_brain_mask.nii.gz
 echo "BedPostX datacheck"
 bedpostx_datacheck bpx
 
-echo "running BedPostX in serial"
+#call to run with CPU
+echo "running BedPostX with CPU"
 #set to just sticks
-bedpostx bpx --model=1
+bedpostx bpx --model=2
 
 #call to run with GPU
-#bedpostx_gpu
-
-#transfer registrations
-cp -r registrations/* bpx.bedpostX/xfms
+#echo "running BedPostX with GPU"
+#bedpostx_gpu bpx --model=2

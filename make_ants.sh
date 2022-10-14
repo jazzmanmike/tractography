@@ -24,10 +24,12 @@ echo "starting ants"
 
 ants_brains.sh -s $1 -o
 
-ants_diff2struct.sh -d ${basedir}/registrations/nodif_brain.nii.gz -s ${basedir}/ants_brains/BrainExtractionBrain.nii.gz -o
-
 ants_struct2stand.sh -s ${basedir}/ants_brains/BrainExtractionBrain.nii.gz -o
 
-ants_regcheck.sh -d ${basedir}/registrations/nodif_brain.nii.gz -w ${basedir}/ants_struct2stand/structural2standard.nii.gz -i ${basedir}/ants_struct2stand/standard2structural.nii.gz -r ${basedir}/ants_diff2struct/rigid0GenericAffine.mat -o
-
 ants_corthick.sh -s $1 -o
+
+if [ $(imtest ${basedir}/registrations/nodif_brain.nii.gz) == 1 ] ;
+then
+    ants_diff2struct.sh -d ${basedir}/registrations/nodif_brain.nii.gz -s ${basedir}/ants_brains/BrainExtractionBrain.nii.gz -o
+    ants_regcheck.sh -d ${basedir}/registrations/nodif_brain.nii.gz -w ${basedir}/ants_struct2stand/structural2standard.nii.gz -i ${basedir}/ants_struct2stand/standard2structural.nii.gz -r ${basedir}/ants_diff2struct/rigid0GenericAffine.mat -o
+fi

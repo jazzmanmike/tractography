@@ -12,28 +12,45 @@
 
 %% Loadup data
 
+%working in /diffusion/
+datapath = pwd;
+cd lead_analysis
+
+%from earlier lead_dbs call
 load("ea_reconstruction.mat");
 
 
 %% 1. Electrode Localisation
 
 SETUP_PACER
-POSTOPCT_FILENAME = 'postop_ct.nii'; 
+POSTOPCT_FILENAME = 'postop_ct.nii';
 niiCT = NiftiMod(POSTOPCT_FILENAME);
-elecModels = PaCER(niiCT); 
+elecModels = PaCER(niiCT);
 XYZ_right = elecModels{1}.getContactPositions3D();
 XYZ_left = elecModels{2}.getContactPositions3D();
 
 
+%% PaCER in CT space
+
+%% PaCER with CT in MNI space
+
+%% Parse tip co-ordinates: native CT, CT in MNI, lead-DBS, use Horn VAT model per contact 1mA???
+
+
 %% 2. DiODE directionality
 
-ctpath = '/home/michaelhart/Documents/DBS_analyses/newsubject/lead_test/postop_ct.nii';
+ctpath = sprintf('%s%s', datapath, '/lead_analysis/postop_ct.nii');
+%ctpath = '/home/michaelhart/Documents/DBS_analyses/newsubject/lead_analysis/postop_ct.nii';
+
+elmodel = 'Boston Scientific Vercise Directed';
+%elmode = 'St. Jude Directed 6172 (short)';
+%elmodel = 'St. Jude Directed 6173 (long)';
+
 
 %right
 head_mm = elecModels{1}.getEstTipPos;
 tail_mm = [14 -7 8]; %estimated
 myside = 1;
-elmodel = 'Boston Scientific Vercise Directed';
 [roll_y_right,y_right,roll_y_deg_right] = diode_standalone(ctpath, head_mm, tail_mm, myside, elmodel);
 
 %left
@@ -48,7 +65,7 @@ tail_mm = [-14 -7 8];
 dir_fastfield='/home/michaelhart/Documents/MATLAB/toolboxes/FastField-master';
 
 %Path to the patient directory
-dir_patient = '/home/michaelhart/Documents/DBS_analyses/newsubject/lead_data';
+dir_patient = pwd;
 
 %features
 perc = [0 100 0 0 0 0 0 0];

@@ -8,7 +8,7 @@ set -e
 
 #define
 
-codedir=${HOME}/code/github/tractography
+codedir="${HOME}"/Dropbox/Github/tractography
 basedir="$(pwd -P)"
 FSLOUTPUTTYPE=NIFTI_GZ #occassionally not set as standard
 
@@ -25,11 +25,11 @@ tract_stats.sh -s stimulation_field.nii.gz
 
 (c) Michael Hart, University of British Columbia, June 2021
 
-Statistical outputs of tractography data (e.g. that run with: tract_van.sh or mini_tract.sh)
+Statistical outputs of tractography data (e.g. that run with: image_analysis.sh)
 
-Simply run as a script in directory used to run tract_van.sh (checks output folder '/diffusion')
+Simply run as a script in directory used to run image_analysis.sh (checks output folder '/diffusion')
 
-Outputs: text file of tractography biomarkers overlap with stimulation_field
+Outputs: text file of tractography biomarkers overlap with stimulation_field (in '/diffusion' as new folder)
 
 Options:
 -s              stimulation field (e.g. VAT/VTA with which to be tested with tractography data)
@@ -42,9 +42,9 @@ Pipeline
 2. Segmentation based outcomes (e.g. cluster, hard segmentation, k-means)
 3. Connectome based outcomes (e.g. module connectivity)
 
-Version:    1.0
+Version:    1.1
 
-History:    original
+History:    new percentage calculations
 
 NB: requires Matlab, Freesurfer, FSL, ANTs, and set path to codedir
 
@@ -105,7 +105,7 @@ fi
 
 if [ ! -d ${basedir}/diffusion ]
 then
-    echo "usage incorrect - no '/diffusion' directory to run in - make sure in correct directory & tract_van.sh run"
+    echo "usage incorrect - no '/diffusion' directory to run in - make sure in correct directory & image_analysis.sh run"
     usage
     exit 1
 fi
@@ -198,23 +198,26 @@ if [ -d ${basedir}/diffusion/dbsxtract/ ] ;
 then
     echo "Directory dbsxtract exists: performing tract based analysis"
     echo "Directory dbsxtract exists: performing tract based analysis" >> ${log}
-    
+
+    cp ${basedir}/diffusion/segmentation/thalamus_right_MNI.nii.gz ${outdir}
+    cp ${basedir}/diffusion/segmentation/thalamus_left_MNI.nii.gz ${outdir}
+
     #DRT
     echo "DRT" >> ${log}
-    fslmaths ${basedir}/diffusion/dbsxtract/tracts/drt_l/density.nii.gz -thr 0.5 ${outdir}/drt_l_thr
-    fslmaths ${basedir}/diffusion/dbsxtract/tracts/drt_r/density.nii.gz -thr 0.5 ${outdir}/drt_r_thr
-    
-    fslmaths ${outdir}/drt_l_thr -bin ${outdir}/drt_l_thr
-    fslmaths ${outdir}/drt_r_thr -bin ${outdir}/drt_r_thr
+    fslmaths ${basedir}/diffusion/dbsxtract/tracts/drt_l/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/drt_l_thr
+    fslmaths ${basedir}/diffusion/dbsxtract/tracts/drt_r/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/drt_r_thr
+
+    fslmaths ${outdir}/drt_l_thr -bin -mas ${outdir}/thalamus_right_MNI.nii.gz ${outdir}/drt_l_bin
+    fslmaths ${outdir}/drt_r_thr -bin -mas ${outdir}/thalamus_left_MNI.nii.gz ${outdir}/drt_r_bin
 
     echo "DRT_l" >> ${log}
-    fslstats ${outdir}/drt_l_thr -V | awk '{print $1}' >> ${log}
+    fslstats ${outdir}/drt_l_bin -V | awk '{print $1}' >> ${log}
 
     echo "DRT_r" >> ${log}
-    fslstats ${outdir}/drt_r_thr -V | awk '{print $1}' >> ${log}
+    fslstats ${outdir}/drt_r_bin -V | awk '{print $1}' >> ${log}
 
-    fslmaths ${outdir}/drt_l_thr -mul ${stimulationfield_test} ${outdir}/drt_l_lesion
-    fslmaths ${outdir}/drt_r_thr -mul ${stimulationfield_test} ${outdir}/drt_r_lesion
+    fslmaths ${outdir}/drt_l_bin -mul ${stimulationfield_test} ${outdir}/drt_l_lesion
+    fslmaths ${outdir}/drt_r_bin -mul ${stimulationfield_test} ${outdir}/drt_r_lesion
 
     echo "DRT_l_lesion" >> ${log}
     fslstats ${outdir}/drt_l_lesion -V | awk '{print $1}' >> ${log}
@@ -227,12 +230,12 @@ then
 
     #NF
     echo "NF" >> ${log}
-    fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_l/density.nii.gz -thr 0.5 ${outdir}/nf_l_thr
-    fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_r/density.nii.gz -thr 0.5 ${outdir}/nf_r_thr
+    fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_l/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/nf_l_thr
+    fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_r/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/nf_r_thr
 
-    fslmaths ${outdir}/nf_l_thr -bin ${outdir}/nf_l_thr
-    fslmaths ${outdir}/nf_r_thr -bin ${outdir}/nf_r_thr
-    
+    fslmaths ${outdir}/nf_l_thr -bin -mas thalamus_left_MNI.nii.gz ${outdir}/nf_l_thr
+    fslmaths ${outdir}/nf_r_thr -bin -mas thalamus_right_MNI.nii.gz ${outdir}/nf_r_thr
+
     echo "NF_l" >> ${log}
     fslstats ${outdir}/nf_l_thr -V | awk '{print $1}' >> ${log}
 
@@ -253,12 +256,12 @@ then
 
     #PF
     echo "PF" >> ${log}
-    fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_l/density.nii.gz -thr 0.5 ${outdir}/pf_l_thr
-    fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_r/density.nii.gz -thr 0.5 ${outdir}/pf_r_thr
+    fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_l/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/pf_l_thr
+    fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_r/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/pf_r_thr
 
-    fslmaths ${outdir}/pf_l_thr -bin ${outdir}/pf_l_thr
-    fslmaths ${outdir}/pf_r_thr -bin ${outdir}/pf_r_thr
-    
+    fslmaths ${outdir}/pf_l_thr -bin -mas thalamus_left_MNI.nii.gz ${outdir}/pf_l_thr
+    fslmaths ${outdir}/pf_r_thr -bin -mas thalamus_right_MNI.nii.gz ${outdir}/pf_r_thr
+
     echo "PF_l" >> ${log}
     fslstats ${outdir}/pf_l_thr -V | awk '{print $1}' >> ${log}
 
@@ -304,7 +307,7 @@ if [ -d ${basedir}/diffusion/thalamus2cortex_left_cluster ] ;
 then
     echo "Directory thalamus2cortex_left_cluster exists: performing tract based analysis"
     echo "Directory thalamus2cortex_left_cluster exists: performing tract based analysis" >> ${log}
-    
+
     #baseline analysis
     echo "Cluster 21 left" >> ${log}
     fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_21.nii.gz -V | awk '{print $1}' >> ${log}
@@ -315,19 +318,19 @@ then
     echo "Cluster dentate right" >> ${log}
     fslstats ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_dentate_right.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
-    
+
     #lesioned analysis
     echo "Cluster 21 left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_21.nii.gz -mul inversion_mask ${outdir}/cluster_21_left_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_21.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_21_left_lesioned.nii.gz
     fslstats ${outdir}/cluster_21_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 23 left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_23.nii.gz -mul inversion_mask ${outdir}/cluster_23_left_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_23.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_23_left_lesioned.nii.gz
     fslstats ${outdir}/cluster_23_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 27 left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_27.nii.gz -mul inversion_mask ${outdir}/cluster_27_left_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_27.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_27_left_lesioned.nii.gz
     fslstats ${outdir}/cluster_27_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster dentate right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_dentate_right.nii.gz -mul inversion_mask ${outdir}/cluster_dentate_right_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_cluster/cluster_dentate_right.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_dentate_right_lesioned.nii.gz
     fslstats ${outdir}/cluster_dentate_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
 
@@ -335,13 +338,13 @@ else
     echo "Directory thalamus2cortex_left_cluster does not exist: exiting this analysis now"
     echo "Directory thalamus2cortex_left_cluster does not exist: exiting this analysis now" >> ${log}
 fi
-    
+
 
 if [ -d ${basedir}/diffusion/thalamus2cortex_right_cluster ] ;
 then
     echo "Directory thalamus2cortex_right_cluster exists: performing tract based analysis"
     echo "Directory thalamus2cortex_right_cluster exists: performing tract based analysis" >> ${log}
-    
+
     echo "Cluster 55 right" >> ${log}
     fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_55.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 57 right" >> ${log}
@@ -351,19 +354,19 @@ then
     echo "Cluster dentate left" >> ${log}
     fslstats ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_dentate_left.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
-    
+
     #lesioned analysis
     echo "Cluster 55 right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_55.nii.gz -mul inversion_mask ${outdir}/cluster_55_right_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_55.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_55_right_lesioned.nii.gz
     fslstats ${outdir}/cluster_55_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 57 right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_57.nii.gz -mul inversion_mask ${outdir}/cluster_57_right_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_57.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_57_right_lesioned.nii.gz
     fslstats ${outdir}/cluster_57_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster 61 right lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_61.nii.gz -mul inversion_mask ${outdir}/cluster_61_right_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_61.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_61_right_lesioned.nii.gz
     fslstats ${outdir}/cluster_61_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "Cluster dentate left lesioned" >> ${log}
-    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_dentate_left.nii.gz -mul inversion_mask ${outdir}/cluster_dentate_left_lesioned.nii.gz
+    fslmaths ${basedir}/diffusion/thalamus2cortex_right_cluster/cluster_dentate_left.nii.gz -mul ${stimulationfield_test} ${outdir}/cluster_dentate_left_lesioned.nii.gz
     fslstats ${outdir}/cluster_dentate_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
 
@@ -379,14 +382,14 @@ if [ -f ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz ] 
 then
     echo "Directory thalamus2cortex_left exists: performing tract based analysis"
     echo "Directory thalamus2cortex_left exists: performing tract based analysis" >> ${log}
-    
+
     echo "Hard segmentation thalamus left" >> ${log}
     fslstats -K ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz -V | awk '{print $1}' >> ${log}
     fslmaths ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz -mul inversion_mask ${outdir}/biggest_segmentation_left_lesioned.nii.gz
     echo "Hard segmentation thalamus left lesioned" >> ${log}
     fslstats -K ${basedir}/diffusion/thalamus2cortex_left/biggest_segmentation.nii.gz ${outdir}/biggest_segmentation_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
-    
+
 else
     echo "Directory thalamus2cortex_left does not exist: exiting this analysis now"
     echo "Directory thalamus2cortex_left does not exist: exiting this analysis now" >> ${log}
@@ -397,14 +400,14 @@ if [ -f ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz ]
 then
     echo "Directory thalamus2cortex_right exists: performing tract based analysis"
     echo "Directory thalamus2cortex_right exists: performing tract based analysis" >> ${log}
-    
+
     echo "Hard segmentation thalamus right" >> ${log}
     fslstats -K ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz -V | awk '{print $1}' >> ${log}
     fslmaths ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz -mul inversion_mask ${outdir}/biggest_segmentation_right_lesioned.nii.gz
     echo "Hard segmentation thalamus right lesioned" >> ${log}
     fslstats -K ${basedir}/diffusion/thalamus2cortex_right/biggest_segmentation.nii.gz ${outdir}/biggest_segmentation_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
     echo "" >> ${log}
-    
+
 else
     echo "Directory thalamus2cortex_right does not exist: exiting this analysis now"
     echo "Directory thalamus2cortex_right does not exist: exiting this analysis now" >> ${log}
@@ -417,14 +420,14 @@ if [ -f ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz ] ;
 then
     echo "Directory thalamus2cortex_left_omatrix2/clusters.nii.gz exists: performing tract based analysis"
     echo "Directory thalamus2cortex_left_omatrix2/clusters.nii.gz exists: performing tract based analysis" >> ${log}
-    
+
     echo "kmeans segmentation thalamus left" >> ${log}
        fslstats -K ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz -V | awk '{print $1}' >> ${log}
        fslmaths ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz -mul inversion_mask ${outdir}/kms_clusters_left_lesioned.nii.gz
        echo "kmeans segmentation thalamus left lesioned" >> ${log}
        fslstats -K ${basedir}/diffusion/thalamus2cortex_left_omatrix2/clusters.nii.gz ${outdir}/kms_clusters_left_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
        echo "" >> ${log}
-    
+
 else
     echo "Directory thalamus2cortex_left/clusters.nii.gz does not exist: exiting this analysis now (check directories segmentation & clusters, batch scripts and slurm calls, matlab clusters analysis)"
     echo "Directory thalamus2cortex_left/clusters.nii.gz does not exist: exiting this analysis now" >> ${log}
@@ -435,17 +438,57 @@ if [ -f  ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz ] ;
 then
     echo "Directory thalamus2cortex_right_omatrix2/clusters.nii.gz exists: performing tract based analysis"
     echo "Directory thalamus2cortex_right_omatrix2/clusters.nii.gz exists: performing tract based analysis" >> ${log}
-    
+
     echo "kmeans segmentation thalamus right" >> ${log}
        fslstats -K ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz -V | awk '{print $1}' >> ${log}
        fslmaths ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz -mul inversion_mask ${outdir}/kms_clusters_right_lesioned.nii.gz
        echo "kmeans segmentation thalamus right lesioned" >> ${log}
        fslstats -K ${basedir}/diffusion/thalamus2cortex_right_omatrix2/clusters.nii.gz ${outdir}/kms_clusters_right_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
        echo "" >> ${log}
-    
+
 else
     echo "Directory thalamus2cortex_right/clusters.nii.gz does not exist: exiting this analysis now (check directories segmentation & clusters, batch scripts and slurm calls, matlab clusters analysis)"
     echo "Directory thalamus2cortex_right/clusters.nii.gz does not exist: exiting this analysis now" >> ${log}
+fi
+
+
+#Dystonia networks
+if [ -f  ${basedir}/diffusion/thalamus2cortex_left_r_neg_all_overlap_3/cluster_r_neg_all_overlap_3.nii.gz ] ;
+then
+    echo "Directory thalamus2cortex_left_r_neg_all_overlap_3 exists: performing tract based analysis"
+    echo "Directory thalamus2cortex_left_r_neg_all_overlap_3 exists: performing tract based analysis" >> ${log}
+
+    echo "r_neg_all_overlap_3 unlesioned" >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_left_r_neg_all_overlap_3/cluster_r_neg_all_overlap_3.nii.gz -V | awk '{print $1}' >> ${log}
+    echo "" >> ${log}
+
+    #lesioned analysis
+    echo "r_neg_all_overlap_3 lesioned" >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_r_neg_all_overlap_3/cluster_r_neg_all_overlap_3.nii.gz -mul inversion_mask ${outdir}/cluster_r_neg_all_overlap_3_lesioned.nii.gz
+    fslstats ${outdir}/cluster_r_neg_all_overlap_3_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
+
+else
+    echo "Directory thalamus2cortex_left_r_neg_all_overlap_3 does not exist: exiting this analysis now (check directories segmentation & clusters, batch scripts and slurm calls, matlab clusters analysis)"
+    echo "Directory thalamus2cortex_left_r_neg_all_overlap_3 does not exist: exiting this analysis now" >> ${log}
+fi
+
+if [ -f  ${basedir}/diffusion/thalamus2cortex_left_r_pos_all_overlap_4/cluster_r_pos_all_overlap_4.nii.gz ] ;
+then
+    echo "Directory thalamus2cortex_left_r_pos_all_overlap_4 exists: performing tract based analysis"
+    echo "Directory thalamus2cortex_left_r_pos_all_overlap_4 exists: performing tract based analysis" >> ${log}
+
+    echo "r_pos_all_overlap_4 unlesioned" >> ${log}
+    fslstats ${basedir}/diffusion/thalamus2cortex_left_r_pos_all_overlap_4/cluster_r_pos_all_overlap_4.nii.gz -V | awk '{print $1}' >> ${log}
+    echo "" >> ${log}
+
+    #lesioned analysis
+    echo "r_pos_all_overlap_4 lesioned" >> ${log}
+    fslmaths ${basedir}/diffusion/thalamus2cortex_left_r_pos_all_overlap_4/cluster_r_pos_all_overlap_4.nii.gz -mul inversion_mask ${outdir}/cluster_r_pos_all_overlap_4_lesioned.nii.gz
+    fslstats ${outdir}/cluster_r_pos_all_overlap_4_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
+
+else
+    echo "Directory thalamus2cortex_left_r_pos_all_overlap_4 does not exist: exiting this analysis now (check directories segmentation & clusters, batch scripts and slurm calls, matlab clusters analysis)"
+    echo "Directory thalamus2cortex_left_r_pos_all_overlap_4 does not exist: exiting this analysis now" >> ${log}
 fi
 
 
@@ -465,34 +508,66 @@ echo "" >> ${log}
 
 
 
-if [ -d ${basedir}/diffusion/connectome_modules_left ] ;
+if [ -d ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_left ] ;
 then
     echo "Directory connectome_modules_left exists: performing tract based analysis"
     echo "Directory connectome_modules_left exists: performing tract based analysis" >> ${log}
-    
-    echo "Module-based hard segmentation thalamus left" >> ${log}
-    fslstats -K ${basedir}/diffusion/connectome_modules_left/biggest_segmentation.nii.gz -V | awk '{print $2}' >> ${log}
-    fslmaths ${basedir}/diffusion/connectome_modules_left/biggest_segmentation.nii.gz -sub ${stimulationfield_test} ${outdir}/module_segmentation_left_lesioned.nii.gz
-    fslstats -K ${outdir}/module_segmentation_left_lesioned.nii.gz -V | awk '{print $2}' >> ${log}
     echo "" >> ${log}
-    
+
+    echo "Module-based hard segmentation thalamus left" >> ${log}
+    echo "" >> ${log}
+    echo "Modules unlesioned" >> ${log}
+    fslstats -K ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_left/biggest_segmentation.nii.gz ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_left/biggest_segmentation.nii.gz -V | awk '{print $2}' >> ${log}
+    echo "" >> ${log}
+    echo "Modules lesioned" >> ${log}
+    fslmaths ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_left/biggest_segmentation.nii.gz -mul inversion_mask ${outdir}/module_segmentation_left_lesioned.nii.gz
+    fslstats -K ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_left/biggest_segmentation.nii.gz ${outdir}/module_segmentation_left_lesioned.nii.gz -V | awk '{print $2}' >> ${log}
+    echo "" >> ${log}
+
+    echo "Most connected module: left" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+
+    echo "Most connected module: right" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+
+
 else
     echo "Directory connectome_modules_left does not exist: exiting this analysis now"
     echo "Directory connectome_modules_left does not exist: exiting this analysis now" >> ${log}
 fi
 
 
-if [ -d ${basedir}/diffusion/connectome_modules_right ] ;
+if [ -d ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_right ] ;
 then
     echo "Directory connectome_modules_right exists: performing tract based analysis"
     echo "Directory connectome_modules_right exists: performing tract based analysis" >> ${log}
-    
-    echo "Module-based hard segmentation thalamus right" >> ${log}
-    fslstats -K ${basedir}/diffusion/connectome_modules_right/biggest_segmentation.nii.gz -V | awk '{print $2}' >> ${log}
-    fslmaths ${basedir}/diffusion/connectome_modules_right/biggest_segmentation.nii.gz -sub ${stimulationfield_test} ${outdir}/module_segmentation_right_lesioned.nii.gz
-    fslstats -K ${outdir}/module_segmentation_right_lesioned.nii.gz -V | awk '{print $2}' >> ${log}
     echo "" >> ${log}
-    
+
+    echo "Module-based hard segmentation thalamus right" >> ${log}
+    echo "" >> ${log}
+    echo "Modules unlesioned" >> ${log}
+    fslstats -K ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_right/biggest_segmentation.nii.gz ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_right/biggest_segmentation.nii.gz -V | awk '{print $2}' >> ${log}
+    echo "" >> ${log}
+    echo "Modules lesioned" >> ${log}
+    fslmaths ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_right/biggest_segmentation.nii.gz -mul inversion_mask ${outdir}/module_segmentation_right_lesioned.nii.gz
+    fslstats -K ${basedir}/diffusion/connectome_modules_AAL90/connectome_modules_right/biggest_segmentation.nii.gz ${outdir}/module_segmentation_right_lesioned.nii.gz -V | awk '{print $2}' >> ${log}
+    echo "" >> ${log}
+
+    echo "Most connected module: left" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+
+    echo "Most connected module: right" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+    echo "" >> ${log}
+
+
 else
     echo "Directory connectome_modules_right does not exist: exiting this analysis now"
     echo "Directory connectome_modules_right does not exist: exiting this analysis now" >> ${log}
@@ -502,6 +577,44 @@ fi
 echo "" >> ${log}
 echo "All done with connectome" >> ${log}
 echo "" >> ${log}
+
+##############
+# 4. Atlases #
+##############
+
+
+echo "" >> ${log}
+echo "4. Atlas analysis" >> ${log}
+echo "" >> ${log}
+
+#VIM
+echo "VIM" >> ${log}
+fslstats ${codedir}/templates/VIM.nii.gz -V | awk '{print $1}' >> ${log}
+fslmaths ${codedir}/templates/VIM.nii.gz -mul ${stimulationfield_test} ${outdir}/VIM_lesioned.nii.gz
+echo "VIM lesioned" >> ${log}
+fslstats ${outdir}/VIM_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
+echo "" >> ${log}
+
+#VLdVLv
+echo "VLdVLv" >> ${log}
+fslstats ${codedir}/templates/VLdVLv.nii.gz -V | awk '{print $1}' >> ${log}
+fslmaths ${codedir}/templates/VLdVLv.nii.gz -mul ${stimulationfield_test} ${outdir}/VLdVLv_lesioned.nii.gz
+echo "VLdVLv lesioned" >> ${log}
+fslstats ${outdir}/VLdVLv_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
+echo "" >> ${log}
+
+#FGATIR
+echo "FGATIR" >> ${log}
+fslstats ${codedir}/templates/hypointensity_template.nii.gz -V | awk '{print $1}' >> ${log}
+fslmaths ${codedir}/templates/hypointensity_template.nii.gz -mul ${stimulationfield_test} ${outdir}/FGATIR_lesioned.nii.gz
+echo "FGATIR lesioned" >> ${log}
+fslstats ${outdir}/FGATIR_lesioned.nii.gz -V | awk '{print $1}' >> ${log}
+echo "" >> ${log}
+
+echo "" >> ${log}
+echo "All done with atlases" >> ${log}
+echo "" >> ${log}
+
 
 
 ############

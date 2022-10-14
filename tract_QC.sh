@@ -25,9 +25,9 @@ tract_QC.sh
 
 (c) Michael Hart, University of British Columbia, April 2021
 
-Quality control of tractography data run with: tract_van.sh
+Quality control of tractography data run with: image_analysis.sh
 
-Simply run as a script in directory used to run tract_van.sh (checks output folder '/diffusion')
+Simply run as a script in directory used to run image_analysis.sh (checks output folder '/diffusion')
 
 Outputs: 2 files - a text file with a variety of calls for visualisation (e.g. FSLEYES, Freeview) & a text file of notable values (e.g. SNR, CNR, etcetera). To view visualisation calls just cp & paste to terminal & run.
 
@@ -101,7 +101,7 @@ fi
 
 if [ ! -d ${basedir}/diffusion ]
 then
-    echo "usage incorrect - no '/diffusion' directory to run in - make sure in correct directory & tract_van.sh run"
+    echo "usage incorrect - no '/diffusion' directory to run in - make sure in correct directory & image_analysis.sh run"
     usage
     exit 1
 fi
@@ -336,7 +336,7 @@ echo "" >> ${log}
 echo "" >> ${log_vis}
 echo "Brain extraction alias calls: structural space" >> ${log_vis}
 echo "" >> ${log_vis}
-echo "fsleyes ${basedir}/diffusion/bet.nii.gz ${basedir}/diffusion/structural.anat/T1_biascorr_brain.nii.gz ${basedir}/diffusion/ants_brains/BrainExtractionBrain.nii.gz " >> ${log_vis}
+echo "fsleyes ${basedir}/diffusion/bet/T1_brain.nii.gz ${basedir}/diffusion/structural.anat/T1_biascorr_brain.nii.gz ${basedir}/diffusion/ants_brains/BrainExtractionBrain.nii.gz " >> ${log_vis}
 echo "" >> ${log_vis}
 
 
@@ -406,7 +406,7 @@ echo "DTI visualisation alias calls" >> ${log_vis}
 echo "" >> ${log_vis}
 echo "DTI fit" >> ${log_vis}
 echo "" >> ${log_vis}
-echo "fsleyes dti_FA dti_V1 -ot rgbvector" >> ${log_vis}
+echo "fsleyes FDT/dti_FA dti_V1 -ot rgbvector" >> ${log_vis}
 echo "" >> ${log_vis}
 
 #as tensor
@@ -414,7 +414,7 @@ echo "" >> ${log_vis}
 echo "" >> ${log_vis}
 echo "As tensor" >> ${log_vis}
 echo "" >> ${log_vis}
-echo "fsleyes dti_FA ./" >> ${log_vis}
+echo "fsleyes FDT/dti_FA ./" >> ${log_vis}
 echo "" >> ${log_vis}
 
 #as 6 volume image with unique elements of tensor matrix
@@ -422,15 +422,15 @@ echo "" >> ${log_vis}
 echo "" >> ${log_vis}
 echo "Tensor matrix" >> ${log_vis}
 echo "" >> ${log_vis}
-echo "fsleyes dti_FA dti_tensor.nii.gz -ot tensor" >> ${log_vis}
+echo "fsleyes FDT/dti_tensor.nii.gz -ot tensor" >> ${log_vis}
 echo "" >> ${log_vis}
 
-#spherical harmonic components
+#spherical harmonic components (to check this)
 
 echo "" >> ${log_vis}
 echo "Spherical harmonic components" >> ${log_vis}
 echo "" >> ${log_vis}
-echo "fsleyes asym_fods.nii.gz -ot sh" >> ${log_vis}
+echo "fsleyes FDT/asym_fods.nii.gz -ot sh" >> ${log_vis}
 echo "" >> ${log_vis}
 
 #bedpostx
@@ -438,7 +438,7 @@ echo "" >> ${log_vis}
 echo "" >> ${log_vis}
 echo "BedpostX" >> ${log_vis}
 echo "" >> ${log_vis}
-echo "fsleyes diffusion.bedpostX/mean_f1samples diffusion.bedpostX/dyads1 -ot linevector diffusion.bedpostX/dyads2_thr0.05 -ot linevector" >> ${log_vis}
+echo "fsleyes bpx.bedpostX/mean_f1samples diffusion.bedpostX/dyads1 -ot linevector bpx.bedpostX/dyads2_thr0.05 -ot linevector" >> ${log_vis}
 echo "" >> ${log_vis}
 
 
@@ -465,7 +465,7 @@ else
         echo "" >> ${log}
         echo "Running xtract_stats"
         echo "Running xtract_stats" >> ${log}
-        xtract_stats -d ${basedir}/diffusion/dti_ -xtract ${basedir}/diffusion/myxtract -w ${basedir}/diffusion/diffusion.bedpostX/xfms/standard2diff.nii.gz -r ${basedir}/diffusion/dti_FA.nii.gz -keepfiles
+        xtract_stats -d ${basedir}/diffusion/FDT/dti_ -xtract ${basedir}/diffusion/myxtract -w ${basedir}/diffusion/bpx.bedpostX/xfms/standard2diff.nii.gz -r ${basedir}/diffusion/FDT/dti_FA.nii.gz -keepfiles
         echo "" >> ${log}
     else
         echo "" >> ${log}

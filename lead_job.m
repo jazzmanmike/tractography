@@ -25,7 +25,7 @@ options.normalize.methodn = 9;
 options.normalize.check = false;
 options.normalize.refine = 0;
 options.coregmr.check = 0;
-options.coregmr.method = 'SPM';
+options.coregmr.method = 'ANTs';
 options.coregmr.do = 1;
 options.overwriteapproved = 0;
 options.coregct.do = true;
@@ -154,7 +154,11 @@ options.colormap = [0.2422 0.1504 0.6603
 options.dolc = 0;
 options.ecog.extractsurface.do = 0;
 options.ecog.extractsurface.method = 1;
-options.uipatdirs = {'/home/michaelhart/Documents/DBS_analyses/lead_test'};
+
+basedir = pwd;
+options.uipatdirs = {sprintf('%s%s', basedir, '/electrode_analysis')};
+%options.uipatdirs = {'/home/michaelhart/Documents/DBS_analyses/newsubject/lead_data'};
+
 options.leadprod = 'dbs';
 options.prefs.dev.profile = 'user';
 options.prefs.pp.do = 0;

@@ -42,16 +42,15 @@ Mandatory
 --bvals         bvals file
 
 Optional
---FLAIR         FLAIR image
+--FLAIR         FLAIR image (for FreeSurfer)
 --acqparams     acquisition parameters (custom values, for Eddy/TopUp, or leave acqparams.txt in basedir)
 --index         diffusion PE directions (custom values, for Eddy/TopUp, or leave index.txt in basedir)
 --segmentation  additional segmentation template (for segmentation: default is Yeo7)
 --parcellation  additional parcellation template (for connectomics: default is AAL90 cortical)
---nsamples      number of samples for tractography (xtract, segmentation, connectome)
 -d              denoise: runs topup & eddy (see code for default acqparams/index parameters or enter custom as above)
 -b              (de)bug: only run analyses not performed yet
 -p              parallel processing (slurm)*
--o              overwrite (re-do everything)
+-o              overwrite (erase & re-do everything)
 -h              show this help
 -v              verbose
 
@@ -66,14 +65,16 @@ Pipeline
 8.  make_bedpostx
 9.  make_xtract
 10. make_segmentation
-11. make_connectome
+11. make_DTI_connectome
+12. make_MSN_connectome
+13. make_electrode_reconstruction (lead_dbs, PaCER, DiODE, FastField, conversion_acpc: needs folder 'lead_analysis' in base directory with anat_t1.nii & postop_ct.nii)
 
 
 Version:    1.0 January 2022
 
 History:
 
-NB: requires Matlab, Freesurfer, FSL, ANTs, and set path to codedir
+NB: requires Matlab, Freesurfer, FSL, ANTs, and set path to codedir (also see electrode_reconstruction separately)
 
 =============================================================================================
 
@@ -95,7 +96,7 @@ bvals=unset
 
 
 # Call getopt to validate the provided input
-options=$(getopt -n image_analysis.sh -o dbpohv --long data:,T1:,bvecs:,bvals:,FLAIR:,acqparams:,index:,segmentation:,parcellation:,nsamples: -- "$@")
+options=$(getopt -n image_analysis.sh -o dbpohv --long data:,T1:,bvecs:,bvals:,FLAIR:,acqparams:,index:,segmentation:,parcellation: -- "$@")
 echo "Options are: ${options}"
 
 # If empty options
@@ -131,7 +132,6 @@ do
     --index)        index="$2"          ;   shift 2 ;;
     --segmentation) segmentation="$2"   ;   shift 2 ;;
     --parcellation) parcellation="$2"   ;   shift 2 ;;
-    --nsamples)     nsamples="$2"       ;   shift 2 ;;
     --) shift; break ;;
     esac
 done
@@ -559,9 +559,11 @@ function imageANALYSIS() {
     echo $(date) >> $log
     echo "6. Starting make_diffusiondenoise" >> $log
 
+    #if [ $(imtest $diffusion_denoise) == 1 ] ;
 
-    #make_diffusiondenoise.sh
+        #make_diffusiondenoise.sh $data $diffuse_denoise $bvecs $bvals $acqp
 
+    #end
 
     echo "" >> $log
     echo $(date) >> $log
@@ -748,12 +750,38 @@ function imageANALYSIS() {
 
     #runs from standard path
 
-    #matlab -nodisplay -nosplash -nodesktop -r "run('home/michaelhart/Dropbox/Github/tractography/lead_job');exit;"
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "13. Starting lead analysis" >> $log
 
-    #matlab -nodisplay -nosplash -nodesktop -r "run('home/michaelhart/Dropbox/Github/tractography/electrode_autoreconstruction');exit;"
+    #also for Matlab script use 'basedir' in path - check if works in Matlab
+    #combine electrode_autoconstruction in same call
 
-    #call for PaCER, DiODE, FastField (x4 contacts per electrode with x3 voltages)
+    if [ -d ${basedir}/lead_analysis ] ;
+    then
 
+        mkdir -p ${outdir}/lead_analysis
+
+        cp ${basedir}/lead_analysis/anat_t1.nii ${outdir}/lead_analysis/
+        cp ${baseidr}/lead_analysis/postop_ct.nii ${outdir}/lead_analysis/
+
+        #Lead_DBS
+        matlab -nodisplay -nosplash -nodesktop -r "run('lead_job');exit;"
+
+        #Electrode autoreconstruction
+        matlab -nodisplay -nosplash -nodesktop -r "run('electrode_autoreconstruction');exit;"
+        #call for PaCER, DiODE, FastField (x4 contacts per electrode with x3 voltages)
+
+        #ACPC conversion
+        #make_acpc.sh
+        #make_DBS_coordinates(XYZ);
+
+    fi
+
+    echo "" >> $log
+    echo $(date) >> $log
+    echo "Finished with lead analysis" >> $log
+    echo "" >> $log
 
 }
 

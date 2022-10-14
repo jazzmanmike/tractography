@@ -20,7 +20,8 @@ echo "SUBJECTS_DIR set up as ${SUBJECTS_DIR}"
 
 if [ $(imtest $2) == 1 ] ;
 then
-  recon-all -i $1 -s FS -all -FLAIR $2 -FLAIRpial -parallel -openmp 8
+  recon-all -i $1 -s FS -all -FLAIR $2 -FLAIRpial -parallel -openmp 14
+  #recon-all -i $1 -s FS -all -FLAIR $2 -FLAIRpial -threads 14
 else
   recon-all -i $1 -s FS -all -parallel -openmp 8
 fi
