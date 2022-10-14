@@ -44,7 +44,7 @@ Pipeline
 
 Version:    1.1
 
-History:    new percentage calculations
+History:    new percentage calculations, final SD version
 
 NB: requires Matlab, Freesurfer, FSL, ANTs, and set path to codedir
 
@@ -233,8 +233,8 @@ then
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_l/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/nf_l_thr
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/nf_r/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/nf_r_thr
 
-    fslmaths ${outdir}/nf_l_thr -bin -mas thalamus_left_MNI.nii.gz ${outdir}/nf_l_thr
-    fslmaths ${outdir}/nf_r_thr -bin -mas thalamus_right_MNI.nii.gz ${outdir}/nf_r_thr
+    fslmaths ${outdir}/nf_l_thr -bin -mas ${outdir}/thalamus_left_MNI.nii.gz ${outdir}/nf_l_thr
+    fslmaths ${outdir}/nf_r_thr -bin -mas ${outdir}/thalamus_right_MNI.nii.gz ${outdir}/nf_r_thr
 
     echo "NF_l" >> ${log}
     fslstats ${outdir}/nf_l_thr -V | awk '{print $1}' >> ${log}
@@ -259,8 +259,8 @@ then
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_l/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/pf_l_thr
     fslmaths ${basedir}/diffusion/dbsxtract/tracts/pf_r/densityNorm.nii.gz -thr 0.01 -uthr 0.1 ${outdir}/pf_r_thr
 
-    fslmaths ${outdir}/pf_l_thr -bin -mas thalamus_left_MNI.nii.gz ${outdir}/pf_l_thr
-    fslmaths ${outdir}/pf_r_thr -bin -mas thalamus_right_MNI.nii.gz ${outdir}/pf_r_thr
+    fslmaths ${outdir}/pf_l_thr -bin -mas ${outdir}/thalamus_left_MNI.nii.gz ${outdir}/pf_l_thr
+    fslmaths ${outdir}/pf_r_thr -bin -mas ${outdir}/thalamus_right_MNI.nii.gz ${outdir}/pf_r_thr
 
     echo "PF_l" >> ${log}
     fslstats ${outdir}/pf_l_thr -V | awk '{print $1}' >> ${log}
